@@ -85,17 +85,58 @@ namespace AICodeActions.Providers
 
         private string ParseResponse(string json)
         {
-            // Simple JSON parsing for Gemini response format
-            int textStart = json.IndexOf("\"text\":");
-            if (textStart == -1) return "Error parsing response";
-
-            textStart = json.IndexOf("\"", textStart + 7) + 1;
-            int textEnd = json.IndexOf("\"", textStart);
+            // Debug: Log raw response
+            Debug.Log($"[Gemini] Raw Response Length: {json.Length}");
             
-            return json.Substring(textStart, textEnd - textStart)
+            // Find the text field in Gemini response format
+            // Response format: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+            int textStart = json.IndexOf("\"text\":");
+            if (textStart == -1)
+            {
+                Debug.LogError("[Gemini] Could not find 'text' field in response");
+                return "Error: Could not parse response";
+            }
+
+            // Move to the opening quote of the text value
+            textStart = json.IndexOf("\"", textStart + 7) + 1;
+            
+            // Find the closing quote, accounting for escaped quotes
+            int textEnd = textStart;
+            bool escaped = false;
+            
+            while (textEnd < json.Length)
+            {
+                if (json[textEnd] == '\\' && !escaped)
+                {
+                    escaped = true;
+                    textEnd++;
+                    continue;
+                }
+                
+                if (json[textEnd] == '"' && !escaped)
+                {
+                    break;
+                }
+                
+                escaped = false;
+                textEnd++;
+            }
+            
+            if (textEnd >= json.Length)
+            {
+                Debug.LogError("[Gemini] Could not find end of text field");
+                return "Error: Incomplete response";
+            }
+            
+            string result = json.Substring(textStart, textEnd - textStart)
                 .Replace("\\n", "\n")
+                .Replace("\\r", "\r")
                 .Replace("\\t", "\t")
-                .Replace("\\\"", "\"");
+                .Replace("\\\"", "\"")
+                .Replace("\\\\", "\\");
+            
+            Debug.Log($"[Gemini] Parsed text length: {result.Length} characters");
+            return result;
         }
 
         private string EscapeJson(string text)

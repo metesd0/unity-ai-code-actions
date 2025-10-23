@@ -97,17 +97,54 @@ namespace AICodeActions.Providers
 
         private string ParseResponse(string json)
         {
-            // Ollama response format: {"response": "text"}
+            Debug.Log($"[Ollama] Raw Response Length: {json.Length}");
+            
             int responseStart = json.IndexOf("\"response\":");
-            if (responseStart == -1) return "Error parsing response";
+            if (responseStart == -1)
+            {
+                Debug.LogError("[Ollama] Could not find 'response' field in response");
+                return "Error: Could not parse response";
+            }
 
             responseStart = json.IndexOf("\"", responseStart + 11) + 1;
-            int responseEnd = json.IndexOf("\"", responseStart);
             
-            return json.Substring(responseStart, responseEnd - responseStart)
+            // Find the closing quote, accounting for escaped quotes
+            int responseEnd = responseStart;
+            bool escaped = false;
+            
+            while (responseEnd < json.Length)
+            {
+                if (json[responseEnd] == '\\' && !escaped)
+                {
+                    escaped = true;
+                    responseEnd++;
+                    continue;
+                }
+                
+                if (json[responseEnd] == '"' && !escaped)
+                {
+                    break;
+                }
+                
+                escaped = false;
+                responseEnd++;
+            }
+            
+            if (responseEnd >= json.Length)
+            {
+                Debug.LogError("[Ollama] Could not find end of response field");
+                return "Error: Incomplete response";
+            }
+            
+            string result = json.Substring(responseStart, responseEnd - responseStart)
                 .Replace("\\n", "\n")
+                .Replace("\\r", "\r")
                 .Replace("\\t", "\t")
-                .Replace("\\\"", "\"");
+                .Replace("\\\"", "\"")
+                .Replace("\\\\", "\\");
+            
+            Debug.Log($"[Ollama] Parsed text length: {result.Length} characters");
+            return result;
         }
 
         private string EscapeJson(string text)
