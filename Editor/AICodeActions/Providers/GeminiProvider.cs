@@ -63,10 +63,14 @@ namespace AICodeActions.Providers
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
+                    Debug.LogError($"[Gemini] HTTP Error: {request.error}");
+                    Debug.LogError($"[Gemini] Response Body: {request.downloadHandler.text}");
                     throw new Exception($"Gemini API Error: {request.error}\n{request.downloadHandler.text}");
                 }
 
-                return ParseResponse(request.downloadHandler.text);
+                string rawResponse = request.downloadHandler.text;
+                Debug.Log($"[Gemini] Raw JSON Response: {rawResponse.Substring(0, Mathf.Min(500, rawResponse.Length))}...");
+                return ParseResponse(rawResponse);
             }
         }
 
