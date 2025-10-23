@@ -137,11 +137,27 @@ namespace AICodeActions.Core
         public string ProcessToolCalls(string response)
         {
             var result = new StringBuilder();
+            
+            // Check if response contains tool calls
+            bool hasToolCalls = response.Contains("[TOOL:");
+            
+            if (!hasToolCalls)
+            {
+                // No tool calls, just return the response
+                return response;
+            }
+            
+            result.AppendLine("## AI Response:");
             result.AppendLine(response);
+            result.AppendLine();
+            result.AppendLine("---");
+            result.AppendLine("## Tool Execution Results:");
             result.AppendLine();
             
             // Find all tool calls in format [TOOL:name]...[/TOOL]
             int startIndex = 0;
+            int toolCount = 0;
+            
             while (true)
             {
                 int toolStart = response.IndexOf("[TOOL:", startIndex);
@@ -159,13 +175,33 @@ namespace AICodeActions.Core
                 string paramSection = response.Substring(toolNameEnd + 1, toolEnd - toolNameEnd - 1);
                 var parameters = ParseParameters(paramSection);
                 
-                // Execute tool
-                result.AppendLine($"## Executing: {toolName}");
+                toolCount++;
+                
+                // Execute tool with visual feedback
+                result.AppendLine($"### 🔧 Tool {toolCount}: {toolName}");
+                result.AppendLine($"**Parameters:**");
+                foreach (var param in parameters)
+                {
+                    string valuePreview = param.Value.Length > 100 
+                        ? param.Value.Substring(0, 100) + "..." 
+                        : param.Value;
+                    result.AppendLine($"- {param.Key}: {valuePreview}");
+                }
+                result.AppendLine();
+                
+                result.AppendLine("**Result:**");
                 string toolResult = ExecuteTool(toolName, parameters);
                 result.AppendLine(toolResult);
                 result.AppendLine();
+                result.AppendLine("---");
+                result.AppendLine();
                 
                 startIndex = toolEnd + 7;
+            }
+            
+            if (toolCount > 0)
+            {
+                result.AppendLine($"✅ Executed {toolCount} tool(s) successfully!");
             }
             
             return result.ToString();

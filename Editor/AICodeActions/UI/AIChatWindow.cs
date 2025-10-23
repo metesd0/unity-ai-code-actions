@@ -456,7 +456,9 @@ namespace AICodeActions.UI
             
             isProcessing = true;
             statusMessage = "AI is thinking...";
-            Repaint();
+            
+            // Save scroll position to prevent jumping
+            float savedScrollY = chatScrollPos.y;
             
             try
             {
@@ -506,7 +508,13 @@ namespace AICodeActions.UI
             finally
             {
                 isProcessing = false;
-                Repaint();
+                
+                // Force repaint after a short delay to avoid flashing
+                EditorApplication.delayCall += () => 
+                {
+                    if (this != null)
+                        Repaint();
+                };
             }
         }
         

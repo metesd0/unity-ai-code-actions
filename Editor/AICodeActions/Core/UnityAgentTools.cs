@@ -121,9 +121,36 @@ namespace AICodeActions.Core
         {
             try
             {
+                Debug.Log($"[CreateScript] Creating {scriptName}.cs for {gameObjectName}");
+                Debug.Log($"[CreateScript] Content length: {scriptContent?.Length ?? 0}");
+                Debug.Log($"[CreateScript] Content preview: {scriptContent?.Substring(0, Math.Min(200, scriptContent?.Length ?? 0))}...");
+                
+                // Validate content
+                if (string.IsNullOrEmpty(scriptContent))
+                {
+                    return $"❌ Script content is empty!";
+                }
+                
+                // Clean up script content (remove markdown if present)
+                scriptContent = scriptContent.Trim();
+                if (scriptContent.StartsWith("```csharp") || scriptContent.StartsWith("```c#"))
+                {
+                    int firstNewline = scriptContent.IndexOf('\n');
+                    if (firstNewline > 0)
+                        scriptContent = scriptContent.Substring(firstNewline + 1);
+                }
+                if (scriptContent.EndsWith("```"))
+                {
+                    int lastBacktick = scriptContent.LastIndexOf("```");
+                    scriptContent = scriptContent.Substring(0, lastBacktick);
+                }
+                scriptContent = scriptContent.Trim();
+                
                 // Create the script file
                 string path = $"Assets/{scriptName}.cs";
                 System.IO.File.WriteAllText(path, scriptContent);
+                Debug.Log($"[CreateScript] File written to: {path}");
+                
                 AssetDatabase.Refresh();
                 
                 // Wait for compilation
@@ -150,15 +177,20 @@ namespace AICodeActions.Core
                     if (scriptClass != null)
                     {
                         Undo.AddComponent(go, scriptClass);
-                        Debug.Log($"✅ Added {scriptName} to {gameObjectName}");
+                        Debug.Log($"✅ Successfully attached {scriptName} to {gameObjectName}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Script {scriptName} class not found - may have compilation errors");
                     }
                 };
                 
-                return $"✅ Created script {scriptName}.cs and will attach to {gameObjectName} after compilation";
+                return $"✅ Created script {scriptName}.cs ({scriptContent.Length} chars) and will attach to {gameObjectName} after compilation";
             }
             catch (Exception e)
             {
-                return $"❌ Error creating script: {e.Message}";
+                Debug.LogError($"[CreateScript] Error: {e}");
+                return $"❌ Error creating script: {e.Message}\n{e.StackTrace}";
             }
         }
         
