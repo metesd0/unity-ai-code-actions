@@ -99,18 +99,54 @@ namespace AICodeActions.Providers
 
         private string ParseResponse(string json)
         {
-            // Simple JSON parsing for response
-            // In production, use proper JSON library
+            Debug.Log($"[OpenAI] Raw Response Length: {json.Length}");
+            
             int contentStart = json.IndexOf("\"content\":");
-            if (contentStart == -1) return "Error parsing response";
+            if (contentStart == -1)
+            {
+                Debug.LogError("[OpenAI] Could not find 'content' field in response");
+                return "Error: Could not parse response";
+            }
 
             contentStart = json.IndexOf("\"", contentStart + 10) + 1;
-            int contentEnd = json.IndexOf("\"", contentStart);
             
-            return json.Substring(contentStart, contentEnd - contentStart)
+            // Find the closing quote, accounting for escaped quotes
+            int contentEnd = contentStart;
+            bool escaped = false;
+            
+            while (contentEnd < json.Length)
+            {
+                if (json[contentEnd] == '\\' && !escaped)
+                {
+                    escaped = true;
+                    contentEnd++;
+                    continue;
+                }
+                
+                if (json[contentEnd] == '"' && !escaped)
+                {
+                    break;
+                }
+                
+                escaped = false;
+                contentEnd++;
+            }
+            
+            if (contentEnd >= json.Length)
+            {
+                Debug.LogError("[OpenAI] Could not find end of content field");
+                return "Error: Incomplete response";
+            }
+            
+            string result = json.Substring(contentStart, contentEnd - contentStart)
                 .Replace("\\n", "\n")
+                .Replace("\\r", "\r")
                 .Replace("\\t", "\t")
-                .Replace("\\\"", "\"");
+                .Replace("\\\"", "\"")
+                .Replace("\\\\", "\\");
+            
+            Debug.Log($"[OpenAI] Parsed text length: {result.Length} characters");
+            return result;
         }
 
         private string EscapeJson(string text)
