@@ -146,7 +146,36 @@ namespace AICodeActions.Core
             try
             {
                 Debug.Log($"[Agent] Executing tool: {toolName}");
-                var result = availableTools[toolName].function(parameters);
+                
+                // Normalize parameter keys to support both snake_case and camelCase
+                var normalizedParams = new Dictionary<string, string>();
+                foreach (var kvp in parameters)
+                {
+                    // Add original key
+                    normalizedParams[kvp.Key] = kvp.Value;
+                    
+                    // Also add converted version
+                    if (kvp.Key.Contains("_"))
+                    {
+                        // Convert snake_case to camelCase
+                        string camelCase = ToCamelCase(kvp.Key);
+                        if (!normalizedParams.ContainsKey(camelCase))
+                        {
+                            normalizedParams[camelCase] = kvp.Value;
+                        }
+                    }
+                    else
+                    {
+                        // Convert camelCase to snake_case
+                        string snakeCase = ToSnakeCase(kvp.Key);
+                        if (!normalizedParams.ContainsKey(snakeCase))
+                        {
+                            normalizedParams[snakeCase] = kvp.Value;
+                        }
+                    }
+                }
+                
+                var result = availableTools[toolName].function(normalizedParams);
                 Debug.Log($"[Agent] Tool result: {result.Substring(0, Math.Min(100, result.Length))}...");
                 return result;
             }
@@ -155,6 +184,36 @@ namespace AICodeActions.Core
                 Debug.LogError($"[Agent] Tool execution failed: {e}");
                 return $"❌ Tool execution failed: {e.Message}";
             }
+        }
+        
+        private string ToCamelCase(string snakeCase)
+        {
+            var parts = snakeCase.Split('_');
+            if (parts.Length == 0) return snakeCase;
+            
+            var result = parts[0].ToLower();
+            for (int i = 1; i < parts.Length; i++)
+            {
+                if (parts[i].Length > 0)
+                {
+                    result += char.ToUpper(parts[i][0]) + parts[i].Substring(1).ToLower();
+                }
+            }
+            return result;
+        }
+        
+        private string ToSnakeCase(string camelCase)
+        {
+            var result = new StringBuilder();
+            for (int i = 0; i < camelCase.Length; i++)
+            {
+                if (i > 0 && char.IsUpper(camelCase[i]))
+                {
+                    result.Append('_');
+                }
+                result.Append(char.ToLower(camelCase[i]));
+            }
+            return result.ToString();
         }
         
         /// <summary>
