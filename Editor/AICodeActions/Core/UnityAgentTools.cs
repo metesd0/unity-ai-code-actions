@@ -304,6 +304,75 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
+        /// Attach an existing script to a GameObject
+        /// </summary>
+        public static string AttachScript(string gameObjectName, string scriptName)
+        {
+            try
+            {
+                // Find the GameObject
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                Debug.Log($"[AttachScript] Attaching {scriptName} to {gameObjectName}");
+                
+                // Remove .cs extension if present
+                if (scriptName.EndsWith(".cs"))
+                    scriptName = scriptName.Substring(0, scriptName.Length - 3);
+                
+                // Find the script
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found in project. Use 'create_and_attach_script' to create a new script.";
+                
+                MonoScript targetScript = null;
+                string scriptPath = null;
+                
+                foreach (var guid in scriptGuids)
+                {
+                    scriptPath = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(scriptPath);
+                    
+                    if (script != null && script.name == scriptName)
+                    {
+                        targetScript = script;
+                        break;
+                    }
+                }
+                
+                if (targetScript == null)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                // Get the script's class
+                var scriptClass = targetScript.GetClass();
+                
+                if (scriptClass == null)
+                    return $"❌ Script '{scriptName}' class not found. Make sure the script is compiled and the class name matches the file name.";
+                
+                // Check if already attached
+                if (go.GetComponent(scriptClass) != null)
+                    return $"ℹ️ Script '{scriptName}' is already attached to {gameObjectName}";
+                
+                // Attach the script
+                Undo.AddComponent(go, scriptClass);
+                
+                // Select the GameObject
+                Selection.activeGameObject = go;
+                
+                Debug.Log($"✅ Successfully attached {scriptName} to {gameObjectName}");
+                
+                return $"✅ Attached {scriptName}.cs to {gameObjectName}\n📍 Script path: {scriptPath}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[AttachScript] Error: {e}");
+                return $"❌ Error attaching script: {e.Message}";
+            }
+        }
+        
+        /// <summary>
         /// Create and attach a script to a GameObject
         /// </summary>
         public static string CreateAndAttachScript(string gameObjectName, string scriptName, string scriptContent)
