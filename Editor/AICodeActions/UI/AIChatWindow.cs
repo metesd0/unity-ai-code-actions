@@ -12,9 +12,7 @@ namespace AICodeActions.UI
     /// </summary>
     public class AIChatWindow : EditorWindow
     {
-        private const string PREFS_CHAT_PROVIDER = "AICodeActions_ChatProvider";
-        private const string PREFS_CHAT_API_KEY = "AICodeActions_ChatAPIKey";
-        private const string PREFS_CHAT_MODEL = "AICodeActions_ChatModel";
+        // Chat window uses main window preferences (no separate keys needed)
 
         private ConversationManager conversation;
         private IModelProvider currentProvider;
@@ -46,11 +44,38 @@ namespace AICodeActions.UI
         
         private void OnEnable()
         {
-            LoadPreferences();
+            // Use same preferences as main window
+            LoadPreferencesFromMainWindow();
             conversation = new ConversationManager();
             
             // Add welcome message
             conversation.AddSystemMessage("Hello! I'm your Unity AI assistant. Ask me anything about Unity, C#, or request code modifications.");
+        }
+        
+        private void LoadPreferencesFromMainWindow()
+        {
+            // Use the same preference keys as AICodeActionsWindow
+            selectedProviderIndex = EditorPrefs.GetInt("AICodeActions_Provider", 0);
+            apiKey = EditorPrefs.GetString("AICodeActions_APIKey", "");
+            model = EditorPrefs.GetString("AICodeActions_Model", "");
+            string endpoint = EditorPrefs.GetString("AICodeActions_Endpoint", "");
+            
+            var config = new ProviderConfig
+            {
+                apiKey = apiKey,
+                model = model,
+                endpoint = endpoint
+            };
+            
+            currentProvider = selectedProviderIndex switch
+            {
+                0 => new OpenAIProvider(config),
+                1 => new GeminiProvider(config),
+                2 => new OllamaProvider(config),
+                _ => null
+            };
+            
+            Debug.Log($"[AI Chat] Loaded provider: {currentProvider?.Name} (IsConfigured: {currentProvider?.IsConfigured})");
         }
         
         private void OnGUI()
@@ -398,48 +423,18 @@ namespace AICodeActions.UI
         
         private void ShowAPIKeyDialog()
         {
-            // This would open a proper dialog - for now just log
-            Debug.Log("Use the main AI Code Actions window to configure API keys");
-            EditorUtility.DisplayDialog("Configure Provider", 
-                "Please use Window > AI Code Actions to configure your provider and API keys.", "OK");
-        }
-        
-        private void UpdateProvider()
-        {
-            var config = new ProviderConfig
+            // Open main window for configuration
+            if (EditorUtility.DisplayDialog("Configure Provider", 
+                "Chat window uses the same provider settings as the main AI Code Actions window.\n\nOpen main window to configure?", 
+                "Yes", "Cancel"))
             {
-                apiKey = apiKey,
-                model = model
-            };
-            
-            currentProvider = selectedProviderIndex switch
-            {
-                0 => new OpenAIProvider(config),
-                1 => new GeminiProvider(config),
-                2 => new OllamaProvider(config),
-                _ => null
-            };
-        }
-        
-        private void LoadPreferences()
-        {
-            selectedProviderIndex = EditorPrefs.GetInt(PREFS_CHAT_PROVIDER, 0);
-            apiKey = EditorPrefs.GetString(PREFS_CHAT_API_KEY, "");
-            model = EditorPrefs.GetString(PREFS_CHAT_MODEL, "gpt-4");
-            
-            UpdateProvider();
-        }
-        
-        private void SavePreferences()
-        {
-            EditorPrefs.SetInt(PREFS_CHAT_PROVIDER, selectedProviderIndex);
-            EditorPrefs.SetString(PREFS_CHAT_API_KEY, apiKey);
-            EditorPrefs.SetString(PREFS_CHAT_MODEL, model);
+                AICodeActionsWindow.ShowWindow();
+            }
         }
         
         private void OnDisable()
         {
-            SavePreferences();
+            // Chat uses main window settings, no need to save separately
         }
     }
 }
