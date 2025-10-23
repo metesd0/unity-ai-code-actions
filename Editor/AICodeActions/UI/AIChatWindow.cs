@@ -16,11 +16,14 @@ namespace AICodeActions.UI
 
         private ConversationManager conversation;
         private IModelProvider currentProvider;
+        private AgentToolSystem agentTools;
         
         private int selectedProviderIndex = 0;
         private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)" };
         private string apiKey = "";
         private string model = "";
+        
+        private bool agentMode = true; // Enable agent capabilities by default
         
         private string userInput = "";
         private Vector2 chatScrollPos;
@@ -47,9 +50,17 @@ namespace AICodeActions.UI
             // Use same preferences as main window
             LoadPreferencesFromMainWindow();
             conversation = new ConversationManager();
+            agentTools = new AgentToolSystem();
             
-            // Add welcome message
-            conversation.AddSystemMessage("Hello! I'm your Unity AI assistant. Ask me anything about Unity, C#, or request code modifications.");
+            // Add welcome message with agent capabilities
+            if (agentMode)
+            {
+                conversation.AddSystemMessage("🤖 AI Agent Mode Enabled!\n\nI can see your Unity scene, create GameObjects, add components, and even create and attach scripts automatically.\n\nTry asking: 'Show me the current scene' or 'Create a player object with a controller script'");
+            }
+            else
+            {
+                conversation.AddSystemMessage("Hello! I'm your Unity AI assistant. Ask me anything about Unity, C#, or request code modifications.");
+            }
         }
         
         private void LoadPreferencesFromMainWindow()
@@ -149,9 +160,20 @@ namespace AICodeActions.UI
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             
-            GUILayout.Label("AI Chat", EditorStyles.boldLabel);
+            GUILayout.Label(agentMode ? "🤖 AI Agent" : "💬 AI Chat", EditorStyles.boldLabel);
             
             GUILayout.FlexibleSpace();
+            
+            // Agent mode toggle
+            bool newAgentMode = GUILayout.Toggle(agentMode, "Agent Mode", EditorStyles.toolbarButton, GUILayout.Width(90));
+            if (newAgentMode != agentMode)
+            {
+                agentMode = newAgentMode;
+                string msg = agentMode 
+                    ? "🤖 Agent Mode ON - I can now interact with Unity!"
+                    : "💬 Chat Mode - Agent tools disabled";
+                conversation.AddSystemMessage(msg);
+            }
             
             if (GUILayout.Button("Settings", EditorStyles.toolbarButton, GUILayout.Width(60)))
             {
@@ -293,24 +315,49 @@ namespace AICodeActions.UI
             // Quick action buttons
             EditorGUILayout.BeginHorizontal();
             
-            if (GUILayout.Button("💡 Explain", GUILayout.Height(25)))
+            if (agentMode)
             {
-                userInput = "Explain this Unity code: ";
+                if (GUILayout.Button("👁️ Scene", GUILayout.Height(25)))
+                {
+                    userInput = "Show me the current scene hierarchy";
+                }
+                
+                if (GUILayout.Button("➕ Create", GUILayout.Height(25)))
+                {
+                    userInput = "Create a new GameObject called ";
+                }
+                
+                if (GUILayout.Button("📊 Stats", GUILayout.Height(25)))
+                {
+                    userInput = "Show me project statistics";
+                }
+                
+                if (GUILayout.Button("🔍 Find", GUILayout.Height(25)))
+                {
+                    userInput = "Find all GameObjects with ";
+                }
             }
-            
-            if (GUILayout.Button("🔧 Refactor", GUILayout.Height(25)))
+            else
             {
-                userInput = "Refactor this code to improve performance: ";
-            }
-            
-            if (GUILayout.Button("🐛 Debug", GUILayout.Height(25)))
-            {
-                userInput = "What's wrong with this code: ";
-            }
-            
-            if (GUILayout.Button("✨ Optimize", GUILayout.Height(25)))
-            {
-                userInput = "Optimize this Unity code: ";
+                if (GUILayout.Button("💡 Explain", GUILayout.Height(25)))
+                {
+                    userInput = "Explain this Unity code: ";
+                }
+                
+                if (GUILayout.Button("🔧 Refactor", GUILayout.Height(25)))
+                {
+                    userInput = "Refactor this code to improve performance: ";
+                }
+                
+                if (GUILayout.Button("🐛 Debug", GUILayout.Height(25)))
+                {
+                    userInput = "What's wrong with this code: ";
+                }
+                
+                if (GUILayout.Button("✨ Optimize", GUILayout.Height(25)))
+                {
+                    userInput = "Optimize this Unity code: ";
+                }
             }
             
             EditorGUILayout.EndHorizontal();
@@ -378,20 +425,37 @@ namespace AICodeActions.UI
             
             try
             {
-                // Build prompt with conversation context
+                // Build prompt with conversation context and tools (if agent mode)
                 string contextPrompt = conversation.GetContextString();
-                string fullPrompt = $"{contextPrompt}\n\nUser: {message}\n\nAssistant:";
+                string toolsInfo = agentMode ? agentTools.GetToolsDescription() : "";
+                
+                string systemPrompt = "You are an expert Unity AI assistant.";
+                if (agentMode)
+                {
+                    systemPrompt += " You have access to Unity tools that let you see and modify the scene. Use them when appropriate to help the user.";
+                }
+                
+                string fullPrompt = $"{systemPrompt}\n\n{toolsInfo}\n\n{contextPrompt}\n\nUser: {message}\n\nAssistant:";
                 
                 var parameters = new ModelParameters
                 {
                     temperature = 0.7f,
-                    maxTokens = 2048
+                    maxTokens = agentMode ? 3072 : 2048
                 };
                 
                 string response = await currentProvider.GenerateAsync(fullPrompt, parameters);
                 
-                // Add assistant response
-                conversation.AddAssistantMessage(response);
+                // Process tool calls if in agent mode
+                if (agentMode)
+                {
+                    string processedResponse = agentTools.ProcessToolCalls(response);
+                    conversation.AddAssistantMessage(processedResponse);
+                }
+                else
+                {
+                    conversation.AddAssistantMessage(response);
+                }
+                
                 statusMessage = "Ready";
             }
             catch (Exception e)
