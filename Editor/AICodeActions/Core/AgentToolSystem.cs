@@ -53,6 +53,22 @@ namespace AICodeActions.Core
                 new string[] { "gameobject_name", "script_name", "script_content" },
                 (p) => UnityAgentTools.CreateAndAttachScript(p["gameobject_name"], p["script_name"], p["script_content"]));
             
+            // File reading tools
+            RegisterTool("read_script",
+                "Read the content of a C# script file by name (e.g., 'PlayerController' or 'PlayerController.cs')",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.ReadScript(p["script_name"]));
+            
+            RegisterTool("read_file",
+                "Read any file content from Assets folder (supports .txt, .json, .xml, .md, etc.)",
+                new string[] { "file_path" },
+                (p) => UnityAgentTools.ReadFile(p["file_path"]));
+            
+            RegisterTool("get_gameobject_info",
+                "Get detailed information about a GameObject including all components and their scripts",
+                new string[] { "gameobject_name" },
+                (p) => UnityAgentTools.GetGameObjectInfo(p["gameobject_name"]));
+            
             // Project inspection
             RegisterTool("list_scripts",
                 "List all C# scripts in the project",

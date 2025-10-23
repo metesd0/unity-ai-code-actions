@@ -13,6 +13,141 @@ namespace AICodeActions.Core
     public static class UnityAgentTools
     {
         /// <summary>
+        /// Read a C# script file content
+        /// </summary>
+        public static string ReadScript(string scriptName)
+        {
+            try
+            {
+                // Find the script by name
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found in project";
+                
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    
+                    if (script != null && (script.name == scriptName || script.name + ".cs" == scriptName))
+                    {
+                        string content = System.IO.File.ReadAllText(path);
+                        return $"📄 File: {script.name}.cs\n📍 Path: {path}\n\n```csharp\n{content}\n```";
+                    }
+                }
+                
+                return $"❌ Script '{scriptName}' not found";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[ReadScript] Error: {e}");
+                return $"❌ Error reading script: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Read any file content from Assets
+        /// </summary>
+        public static string ReadFile(string filePath)
+        {
+            try
+            {
+                // If just filename, search for it
+                if (!filePath.Contains("/") && !filePath.Contains("\\"))
+                {
+                    var guids = AssetDatabase.FindAssets(System.IO.Path.GetFileNameWithoutExtension(filePath));
+                    if (guids.Length > 0)
+                    {
+                        filePath = AssetDatabase.GUIDToAssetPath(guids[0]);
+                    }
+                }
+                
+                // Ensure it's in Assets folder
+                if (!filePath.StartsWith("Assets/"))
+                    filePath = "Assets/" + filePath;
+                
+                if (!System.IO.File.Exists(filePath))
+                    return $"❌ File not found: {filePath}";
+                
+                string content = System.IO.File.ReadAllText(filePath);
+                string extension = System.IO.Path.GetExtension(filePath);
+                string fileName = System.IO.Path.GetFileName(filePath);
+                
+                return $"📄 File: {fileName}\n📍 Path: {filePath}\n\n```{extension.TrimStart('.')}\n{content}\n```";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[ReadFile] Error: {e}");
+                return $"❌ Error reading file: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Get detailed GameObject information
+        /// </summary>
+        public static string GetGameObjectInfo(string gameObjectName)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found in scene";
+                
+                var info = new System.Text.StringBuilder();
+                info.AppendLine($"# GameObject: {go.name}");
+                info.AppendLine($"**Active:** {go.activeSelf}");
+                info.AppendLine($"**Tag:** {go.tag}");
+                info.AppendLine($"**Layer:** {LayerMask.LayerToName(go.layer)}");
+                info.AppendLine($"**Position:** {go.transform.position}");
+                info.AppendLine($"**Rotation:** {go.transform.rotation.eulerAngles}");
+                info.AppendLine($"**Scale:** {go.transform.localScale}");
+                info.AppendLine();
+                
+                var components = go.GetComponents<Component>();
+                info.AppendLine($"## Components ({components.Length}):");
+                
+                foreach (var comp in components)
+                {
+                    if (comp == null) continue;
+                    
+                    info.AppendLine($"- **{comp.GetType().Name}**");
+                    
+                    // If it's a MonoBehaviour, show the script
+                    if (comp is MonoBehaviour mb)
+                    {
+                        var mbScript = MonoScript.FromMonoBehaviour(mb);
+                        if (mbScript != null)
+                        {
+                            string mbPath = AssetDatabase.GetAssetPath(mbScript);
+                            info.AppendLine($"  📄 Script: {mbScript.name}.cs");
+                            info.AppendLine($"  📍 Path: {mbPath}");
+                        }
+                    }
+                }
+                
+                // Show children
+                if (go.transform.childCount > 0)
+                {
+                    info.AppendLine();
+                    info.AppendLine($"## Children ({go.transform.childCount}):");
+                    for (int i = 0; i < go.transform.childCount; i++)
+                    {
+                        var child = go.transform.GetChild(i);
+                        info.AppendLine($"- {child.name}");
+                    }
+                }
+                
+                return info.ToString();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[GetGameObjectInfo] Error: {e}");
+                return $"❌ Error getting GameObject info: {e.Message}";
+            }
+        }
+        
+        /// <summary>
         /// Get current scene information
         /// </summary>
         public static string GetSceneInfo()
