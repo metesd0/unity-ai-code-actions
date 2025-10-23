@@ -494,67 +494,6 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
-        /// Get information about a specific GameObject
-        /// </summary>
-        public static string GetGameObjectInfo(string name)
-        {
-            try
-            {
-                var go = GameObject.Find(name);
-                if (go == null)
-                    return $"❌ GameObject '{name}' not found";
-                
-                var info = new System.Text.StringBuilder();
-                info.AppendLine($"# GameObject: {go.name}");
-                info.AppendLine($"Active: {go.activeSelf}");
-                info.AppendLine($"Tag: {go.tag}");
-                info.AppendLine($"Layer: {LayerMask.LayerToName(go.layer)}");
-                info.AppendLine($"Position: {go.transform.position}");
-                info.AppendLine($"Rotation: {go.transform.rotation.eulerAngles}");
-                info.AppendLine($"Scale: {go.transform.localScale}");
-                info.AppendLine();
-                
-                info.AppendLine("## Components:");
-                var components = go.GetComponents<Component>();
-                foreach (var comp in components)
-                {
-                    if (comp != null)
-                    {
-                        info.AppendLine($"- {comp.GetType().Name}");
-                        
-                        // Get serialized properties
-                        var so = new SerializedObject(comp);
-                        var prop = so.GetIterator();
-                        prop.NextVisible(true);
-                        
-                        int count = 0;
-                        while (prop.NextVisible(false) && count < 10) // Limit to 10 properties
-                        {
-                            info.AppendLine($"    {prop.name}: {prop.propertyType}");
-                            count++;
-                        }
-                    }
-                }
-                
-                if (go.transform.childCount > 0)
-                {
-                    info.AppendLine();
-                    info.AppendLine($"## Children ({go.transform.childCount}):");
-                    for (int i = 0; i < Math.Min(go.transform.childCount, 10); i++)
-                    {
-                        info.AppendLine($"- {go.transform.GetChild(i).name}");
-                    }
-                }
-                
-                return info.ToString();
-            }
-            catch (Exception e)
-            {
-                return $"❌ Error getting GameObject info: {e.Message}";
-            }
-        }
-        
-        /// <summary>
         /// List all scripts in the project
         /// </summary>
         public static string ListScripts(string filter = "")
