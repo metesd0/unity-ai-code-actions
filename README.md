@@ -28,13 +28,13 @@ Transform your Unity workflow with AI-powered code assistance that understands y
 2. Click `+` button → `Add package from git URL...`
 3. Enter:
    ```
-   https://github.com/yourusername/unity-ai-code-actions.git?path=/Package
+   https://github.com/metesd0/unity-ai-code-actions.git?path=/Package
    ```
 4. Wait for import to complete
 
 ### Method 2: Manual Installation
 
-1. Download the [latest release](https://github.com/yourusername/unity-ai-code-actions/releases)
+1. Download the [latest release](https://github.com/metesd0/unity-ai-code-actions/releases)
 2. Extract to your project's `Packages` folder
 3. Unity will auto-import
 
@@ -153,8 +153,8 @@ Improve code quality and performance.
 
 ## 🤝 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/unity-ai-code-actions/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/unity-ai-code-actions/discussions)
+- **Issues**: [GitHub Issues](https://github.com/metesd0/unity-ai-code-actions/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/metesd0/unity-ai-code-actions/discussions)
 - **Email**: support@aicodeactions.dev
 
 ---
