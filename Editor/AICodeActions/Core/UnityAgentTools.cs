@@ -153,39 +153,84 @@ namespace AICodeActions.Core
                 
                 AssetDatabase.Refresh();
                 
-                // Wait for compilation
-                EditorApplication.delayCall += () =>
+                // Wait for compilation using EditorApplication.update
+                double startTime = EditorApplication.timeSinceStartup;
+                int maxWaitTime = 15; // Maximum 15 seconds
+                int checkInterval = 0;
+                
+                void CheckAndAttach()
                 {
-                    // Find the GameObject
+                    checkInterval++;
+                    double elapsed = EditorApplication.timeSinceStartup - startTime;
+                    
+                    // Only check every 10 frames (roughly every 0.3 seconds at 60fps)
+                    if (checkInterval % 10 != 0)
+                        return;
+                    
+                    // Timeout after max wait time
+                    if (elapsed > maxWaitTime)
+                    {
+                        EditorApplication.update -= CheckAndAttach;
+                        Debug.LogError($"❌ Timeout: Could not attach {scriptName} after {maxWaitTime}s. Script may have compilation errors.");
+                        Debug.LogError($"💡 Check Console for compilation errors or manually attach the script to {gameObjectName}");
+                        return;
+                    }
+                    
+                    // Try to find GameObject
                     var go = GameObject.Find(gameObjectName);
                     if (go == null)
                     {
-                        Debug.LogError($"GameObject '{gameObjectName}' not found after script creation");
+                        // GameObject might not exist yet or wrong name
+                        if (elapsed > 2) // Only log after 2 seconds
+                        {
+                            Debug.LogWarning($"[{elapsed:F1}s] GameObject '{gameObjectName}' not found. Waiting...");
+                        }
                         return;
                     }
                     
-                    // Load the script asset
+                    // Try to load script
                     var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
                     if (script == null)
                     {
-                        Debug.LogError($"Script '{scriptName}' not found after creation");
+                        Debug.LogWarning($"[{elapsed:F1}s] Script asset not loaded yet. Waiting...");
                         return;
                     }
                     
-                    // Try to add the component
+                    // Try to get compiled class
                     var scriptClass = script.GetClass();
                     if (scriptClass != null)
                     {
-                        Undo.AddComponent(go, scriptClass);
-                        Debug.Log($"✅ Successfully attached {scriptName} to {gameObjectName}");
+                        // Success! Remove update callback
+                        EditorApplication.update -= CheckAndAttach;
+                        
+                        // Check if component already exists
+                        if (go.GetComponent(scriptClass) == null)
+                        {
+                            Undo.AddComponent(go, scriptClass);
+                            Debug.Log($"✅ Successfully attached {scriptName} to {gameObjectName} (after {elapsed:F1}s)");
+                            
+                            // Select the GameObject to show it worked
+                            Selection.activeGameObject = go;
+                        }
+                        else
+                        {
+                            Debug.Log($"ℹ️ {scriptName} already attached to {gameObjectName}");
+                        }
                     }
                     else
                     {
-                        Debug.LogWarning($"Script {scriptName} class not found - may have compilation errors");
+                        // Still compiling
+                        if (checkInterval % 30 == 0) // Log every 30 checks
+                        {
+                            Debug.Log($"[{elapsed:F1}s] Waiting for {scriptName} to compile...");
+                        }
                     }
-                };
+                }
                 
-                return $"✅ Created script {scriptName}.cs ({scriptContent.Length} chars) and will attach to {gameObjectName} after compilation";
+                // Register update callback
+                EditorApplication.update += CheckAndAttach;
+                
+                return $"✅ Created script {scriptName}.cs ({scriptContent.Length} chars)\n⏳ Attaching to {gameObjectName} after compilation...";
             }
             catch (Exception e)
             {
