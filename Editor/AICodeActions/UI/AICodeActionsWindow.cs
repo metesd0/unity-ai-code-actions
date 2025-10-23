@@ -21,13 +21,15 @@ namespace AICodeActions.UI
         private const string PREFS_API_KEY = "AICodeActions_APIKey";
         private const string PREFS_MODEL = "AICodeActions_Model";
         private const string PREFS_ENDPOINT = "AICodeActions_Endpoint";
+        private const string PREFS_OPENROUTER_MODEL = "AICodeActions_OpenRouterModel";
 
         // State
         private int selectedProviderIndex = 0;
-        private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)" };
+        private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)", "OpenRouter" };
         private string apiKey = "";
         private string model = "";
         private string endpoint = "";
+        private string openRouterModel = "openai/gpt-3.5-turbo";
         
         private int selectedActionIndex = 0;
         private string[] actionNames = { "Generate Script", "Explain Code", "Refactor Code" };
@@ -132,7 +134,7 @@ namespace AICodeActions.UI
             }
 
             // Show API key field only for cloud providers
-            if (selectedProviderIndex == 0 || selectedProviderIndex == 1) // OpenAI or Gemini
+            if (selectedProviderIndex == 0 || selectedProviderIndex == 1 || selectedProviderIndex == 3) // OpenAI, Gemini, or OpenRouter
             {
                 apiKey = EditorGUILayout.PasswordField("API Key", apiKey);
                 if (string.IsNullOrEmpty(apiKey))
@@ -141,7 +143,28 @@ namespace AICodeActions.UI
                 }
             }
 
-            model = EditorGUILayout.TextField("Model", model);
+            // Model field - different for OpenRouter
+            if (selectedProviderIndex == 3) // OpenRouter
+            {
+                openRouterModel = EditorGUILayout.TextField("Model", openRouterModel);
+                EditorGUILayout.HelpBox("Enter full model name (e.g., openai/gpt-4, anthropic/claude-2, meta-llama/llama-3-8b-instruct)\nSee all models at: https://openrouter.ai/models", MessageType.Info);
+                
+                // Quick model buttons
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("GPT-4o", GUILayout.Width(80)))
+                    openRouterModel = "openai/gpt-4o";
+                if (GUILayout.Button("GPT-4", GUILayout.Width(80)))
+                    openRouterModel = "openai/gpt-4";
+                if (GUILayout.Button("Claude-3.5", GUILayout.Width(80)))
+                    openRouterModel = "anthropic/claude-3.5-sonnet";
+                if (GUILayout.Button("Llama-3", GUILayout.Width(80)))
+                    openRouterModel = "meta-llama/llama-3-70b-instruct";
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                model = EditorGUILayout.TextField("Model", model);
+            }
             
             if (selectedProviderIndex == 2) // Ollama
             {
@@ -497,7 +520,7 @@ namespace AICodeActions.UI
             var config = new ProviderConfig
             {
                 apiKey = apiKey,
-                model = model,
+                model = selectedProviderIndex == 3 ? openRouterModel : model,
                 endpoint = endpoint
             };
 
@@ -506,10 +529,22 @@ namespace AICodeActions.UI
                 0 => new OpenAIProvider(config),
                 1 => new GeminiProvider(config),
                 2 => new OllamaProvider(config),
+                3 => CreateOpenRouterProvider(),
                 _ => null
             };
 
             statusMessage = $"Provider set to: {currentProvider?.Name ?? "None"}";
+        }
+        
+        private IModelProvider CreateOpenRouterProvider()
+        {
+            var provider = new OpenRouterProvider();
+            var settings = new Dictionary<string, object>
+            {
+                { "modelName", openRouterModel }
+            };
+            provider.Configure(apiKey, settings);
+            return provider;
         }
 
         private void OnProviderChanged()
@@ -529,6 +564,10 @@ namespace AICodeActions.UI
                     model = "mistral";
                     endpoint = "http://localhost:11434/api/generate";
                     break;
+                case 3: // OpenRouter
+                    openRouterModel = "openai/gpt-3.5-turbo";
+                    endpoint = "";
+                    break;
             }
             
             UpdateProvider();
@@ -540,6 +579,7 @@ namespace AICodeActions.UI
             apiKey = EditorPrefs.GetString(PREFS_API_KEY, "");
             model = EditorPrefs.GetString(PREFS_MODEL, "gpt-4");
             endpoint = EditorPrefs.GetString(PREFS_ENDPOINT, "");
+            openRouterModel = EditorPrefs.GetString(PREFS_OPENROUTER_MODEL, "openai/gpt-3.5-turbo");
             
             UpdateProvider();
         }
@@ -550,6 +590,7 @@ namespace AICodeActions.UI
             EditorPrefs.SetString(PREFS_API_KEY, apiKey);
             EditorPrefs.SetString(PREFS_MODEL, model);
             EditorPrefs.SetString(PREFS_ENDPOINT, endpoint);
+            EditorPrefs.SetString(PREFS_OPENROUTER_MODEL, openRouterModel);
         }
 
         private void OnDisable()
