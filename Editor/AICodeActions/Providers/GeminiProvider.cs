@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -43,9 +44,9 @@ namespace AICodeActions.Providers
                     }}]
                 }}],
                 ""generationConfig"": {{
-                    ""temperature"": {parameters.temperature},
+                    ""temperature"": {parameters.temperature.ToString(CultureInfo.InvariantCulture)},
                     ""maxOutputTokens"": {parameters.maxTokens},
-                    ""topP"": {parameters.topP}
+                    ""topP"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
                 }}
             }}";
 

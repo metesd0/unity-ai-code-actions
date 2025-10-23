@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -45,9 +46,9 @@ namespace AICodeActions.Providers
                 ""prompt"": {EscapeJson(fullPrompt)},
                 ""stream"": false,
                 ""options"": {{
-                    ""temperature"": {parameters.temperature},
+                    ""temperature"": {parameters.temperature.ToString(CultureInfo.InvariantCulture)},
                     ""num_predict"": {parameters.maxTokens},
-                    ""top_p"": {parameters.topP}
+                    ""top_p"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
                 }}
             }}";
 
