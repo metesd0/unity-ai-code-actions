@@ -1,5 +1,5 @@
 # Unity generated
-*.meta
+# *.meta files are needed for UPM packages!
 
 # OS generated
 .DS_Store
