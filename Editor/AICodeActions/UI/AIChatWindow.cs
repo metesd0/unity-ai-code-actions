@@ -652,10 +652,10 @@ namespace AICodeActions.UI
             if (obj is MonoScript script)
             {
                 string scriptPath = AssetDatabase.GetAssetPath(script);
-                string scriptContent = System.IO.File.ReadAllText(scriptPath);
                 
-                userInput += $"\n\n```csharp\n// File: {script.name}.cs\n{scriptContent}\n```\n";
-                conversation.AddSystemMessage($"📎 Attached script: {script.name}.cs");
+                // Only add reference, let AI read it with read_script tool
+                userInput += $"\n📎 Script: `{script.name}.cs` (Path: {scriptPath})\n";
+                conversation.AddSystemMessage($"📎 Attached script reference: {script.name}.cs - AI can read it with 'read_script' tool");
                 Repaint();
                 return;
             }
@@ -663,41 +663,9 @@ namespace AICodeActions.UI
             // GameObject (from Hierarchy)
             if (obj is GameObject go)
             {
-                var components = go.GetComponents<Component>();
-                var info = new System.Text.StringBuilder();
-                
-                info.AppendLine($"\n\n## GameObject: {go.name}");
-                info.AppendLine($"**Active:** {go.activeSelf}");
-                info.AppendLine($"**Tag:** {go.tag}");
-                info.AppendLine($"**Layer:** {LayerMask.LayerToName(go.layer)}");
-                info.AppendLine();
-                info.AppendLine("**Components:**");
-                
-                foreach (var comp in components)
-                {
-                    if (comp != null)
-                    {
-                        info.AppendLine($"- {comp.GetType().Name}");
-                        
-                        // Add script content if it's a MonoBehaviour
-                        if (comp is MonoBehaviour mb)
-                        {
-                            var mbScript = MonoScript.FromMonoBehaviour(mb);
-                            if (mbScript != null)
-                            {
-                                string mbPath = AssetDatabase.GetAssetPath(mbScript);
-                                if (!string.IsNullOrEmpty(mbPath) && System.IO.File.Exists(mbPath))
-                                {
-                                    string mbContent = System.IO.File.ReadAllText(mbPath);
-                                    info.AppendLine($"\n```csharp\n// Script: {mbScript.name}.cs\n{mbContent}\n```\n");
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                userInput += info.ToString();
-                conversation.AddSystemMessage($"📎 Attached GameObject: {go.name} with {components.Length} components");
+                // Only add reference, let AI read it with get_gameobject_info tool
+                userInput += $"\n🎮 GameObject: `{go.name}` (in Hierarchy)\n";
+                conversation.AddSystemMessage($"📎 Attached GameObject reference: {go.name} - AI can inspect it with 'get_gameobject_info' tool");
                 Repaint();
                 return;
             }
@@ -706,30 +674,9 @@ namespace AICodeActions.UI
             if (PrefabUtility.IsPartOfPrefabAsset(obj))
             {
                 string prefabPath = AssetDatabase.GetAssetPath(obj);
-                GameObject prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
-                
-                if (prefabRoot != null)
-                {
-                    var components = prefabRoot.GetComponentsInChildren<Component>();
-                    var info = new System.Text.StringBuilder();
-                    
-                    info.AppendLine($"\n\n## Prefab: {obj.name}");
-                    info.AppendLine($"**Path:** {prefabPath}");
-                    info.AppendLine();
-                    info.AppendLine("**Components:**");
-                    
-                    foreach (var comp in components)
-                    {
-                        if (comp != null)
-                            info.AppendLine($"- {comp.gameObject.name}: {comp.GetType().Name}");
-                    }
-                    
-                    userInput += info.ToString();
-                    conversation.AddSystemMessage($"📎 Attached Prefab: {obj.name}");
-                    
-                    PrefabUtility.UnloadPrefabContents(prefabRoot);
-                    Repaint();
-                }
+                userInput += $"\n📦 Prefab: `{obj.name}` (Path: {prefabPath})\n";
+                conversation.AddSystemMessage($"📎 Attached Prefab reference: {obj.name}");
+                Repaint();
                 return;
             }
             
@@ -746,8 +693,9 @@ namespace AICodeActions.UI
             // TextAsset (txt, json, xml, etc.)
             if (obj is TextAsset textAsset)
             {
-                userInput += $"\n\n```\n// File: {textAsset.name}\n{textAsset.text}\n```\n";
-                conversation.AddSystemMessage($"📎 Attached file: {textAsset.name}");
+                string textPath = AssetDatabase.GetAssetPath(textAsset);
+                userInput += $"\n📄 File: `{textAsset.name}` (Path: {textPath})\n";
+                conversation.AddSystemMessage($"📎 Attached file reference: {textAsset.name} - AI can read it with 'read_file' tool");
                 Repaint();
                 return;
             }
@@ -765,11 +713,18 @@ namespace AICodeActions.UI
             // Check if it's a .cs file
             if (path.EndsWith(".cs") && System.IO.File.Exists(path))
             {
-                string scriptContent = System.IO.File.ReadAllText(path);
                 string fileName = System.IO.Path.GetFileName(path);
+                string scriptName = System.IO.Path.GetFileNameWithoutExtension(path);
                 
-                userInput += $"\n\n```csharp\n// File: {fileName}\n{scriptContent}\n```\n";
-                conversation.AddSystemMessage($"📎 Attached script: {fileName}");
+                userInput += $"\n📎 Script: `{fileName}` (Path: {path})\n";
+                conversation.AddSystemMessage($"📎 Attached script reference: {fileName} - AI can read it with 'read_script' tool");
+                Repaint();
+            }
+            else if (System.IO.File.Exists(path))
+            {
+                string fileName = System.IO.Path.GetFileName(path);
+                userInput += $"\n📄 File: `{fileName}` (Path: {path})\n";
+                conversation.AddSystemMessage($"📎 Attached file reference: {fileName} - AI can read it with 'read_file' tool");
                 Repaint();
             }
         }
