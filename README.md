@@ -13,10 +13,11 @@ Transform your Unity workflow with AI-powered code assistance that understands y
 ## ✨ Features
 
 - 🎯 **Project-Aware**: Analyzes your C# scripts, scenes, and prefabs for relevant context
-- 🌐 **Multiple Providers**: OpenAI (GPT-4), Google Gemini, or Ollama (offline)
+- 🌐 **Multiple Providers**: OpenAI (GPT-4), Google Gemini, OpenRouter (100+ models), or Ollama (offline)
 - 🛡️ **Safe Modifications**: Visual diff preview + automatic backups
 - ⚡ **Unity-Optimized**: Built-in best practices and performance patterns
 - 💰 **Cost Control**: Token budgeting and completely free offline mode
+- 🤖 **AI Agent Mode**: Chat interface with Unity scene interaction, auto-script creation & attachment
 
 ---
 
@@ -66,6 +67,16 @@ In Unity:
 - Get API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
 - Model: `gemini-pro`
 
+#### Option D: OpenRouter (100+ Models) 🔥 NEW!
+- Get API key: [OpenRouter](https://openrouter.ai)
+- Access to GPT-4, Claude 3.5, Llama 3, and 100+ more models
+- Model examples:
+  - `openai/gpt-4o` - Latest GPT-4
+  - `anthropic/claude-3.5-sonnet` - Best for code
+  - `meta-llama/llama-3-70b-instruct` - FREE!
+  - `google/gemini-pro` - FREE alternative
+- **See full guide:** [OPENROUTER_GUIDE.md](OPENROUTER_GUIDE.md)
+
 ### 2. Generate Your First Script
 
 ```
@@ -102,11 +113,40 @@ Improve code quality and performance.
 "Reduce GC allocations"
 ```
 
+### AI Chat (Agent Mode) 🆕
+Interactive AI assistant that can see and modify your Unity scene!
+
+**Open:** `Window > AI Chat`
+
+**Agent Capabilities:**
+- 🔍 **Scene Inspection:** "Show me the current scene hierarchy"
+- 🎮 **GameObject Creation:** "Create a Player object with CharacterController"
+- 📝 **Auto-Script Generation:** "Add a movement script to the Player"
+- 🔧 **Component Management:** "Add Rigidbody and BoxCollider to Cube"
+- 🎯 **Smart Actions:** "Setup a complete FPS player with camera and controls"
+
+**Example Conversation:**
+```
+You: "Create a complete enemy AI"
+
+AI: [TOOL:create_gameobject] name: Enemy
+    ✅ Created GameObject: Enemy
+    
+    [TOOL:create_and_attach_script] 
+    scriptName: EnemyAI
+    scriptContent: [Full C# code with pathfinding]
+    ✅ Created EnemyAI.cs and attached to Enemy
+    
+    Done! Enemy AI is ready with patrol behavior.
+```
+
 ---
 
 ## 📚 Documentation
 
 - [Quick Start Guide](QUICKSTART.md)
+- [OpenRouter Guide](OPENROUTER_GUIDE.md) 🔥 NEW!
+- [AI Agent Roadmap](AI_CHAT_ROADMAP.md)
 - [Testing Guide](TESTING_GUIDE.md)
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE.md)
