@@ -31,6 +31,8 @@ namespace AICodeActions.UI
         
         private bool isProcessing = false;
         private string statusMessage = "Ready";
+        private bool autoScroll = true;
+        private float lastScrollY = 0f;
         
         private GUIStyle userMessageStyle;
         private GUIStyle assistantMessageStyle;
@@ -49,17 +51,22 @@ namespace AICodeActions.UI
         {
             // Use same preferences as main window
             LoadPreferencesFromMainWindow();
-            conversation = new ConversationManager();
             agentTools = new AgentToolSystem();
             
-            // Add welcome message with agent capabilities
-            if (agentMode)
+            // Load conversation history
+            LoadConversation();
+            
+            // Add welcome message only if conversation is empty
+            if (conversation.Messages.Count == 0)
             {
-                conversation.AddSystemMessage("🤖 AI Agent Mode Enabled!\n\nI can see your Unity scene, create GameObjects, add components, and even create and attach scripts automatically.\n\nTry asking: 'Show me the current scene' or 'Create a player object with a controller script'");
-            }
-            else
-            {
-                conversation.AddSystemMessage("Hello! I'm your Unity AI assistant. Ask me anything about Unity, C#, or request code modifications.");
+                if (agentMode)
+                {
+                    conversation.AddSystemMessage("🤖 AI Agent Mode Enabled!\n\nI can see your Unity scene, create GameObjects, add components, and even create and attach scripts automatically.\n\nTry asking: 'Show me the current scene' or 'Create a player object with a controller script'");
+                }
+                else
+                {
+                    conversation.AddSystemMessage("Hello! I'm your Unity AI assistant. Ask me anything about Unity, C#, or request code modifications.");
+                }
             }
         }
         
@@ -186,6 +193,7 @@ namespace AICodeActions.UI
                 {
                     conversation.Clear();
                     conversation.AddSystemMessage("Conversation cleared. How can I help you?");
+                    SaveConversation(); // Save immediately after clearing
                 }
             }
             
@@ -204,13 +212,39 @@ namespace AICodeActions.UI
                 EditorGUILayout.Space(5);
             }
             
-            // Auto-scroll to bottom
+            EditorGUILayout.EndScrollView();
+            
+            // Auto-scroll to bottom only if user is already at bottom or new message added
             if (Event.current.type == EventType.Repaint)
             {
-                chatScrollPos.y = Mathf.Infinity;
+                // Detect if user scrolled up manually
+                if (Mathf.Abs(chatScrollPos.y - lastScrollY) > 10f)
+                {
+                    // User scrolled manually
+                    if (chatScrollPos.y < lastScrollY)
+                    {
+                        autoScroll = false; // User scrolled up, disable auto-scroll
+                    }
+                }
+                
+                // Only auto-scroll if enabled and there are new messages
+                if (autoScroll)
+                {
+                    chatScrollPos.y = Mathf.Infinity;
+                }
+                
+                lastScrollY = chatScrollPos.y;
             }
             
-            EditorGUILayout.EndScrollView();
+            // Re-enable auto-scroll button
+            EditorGUILayout.BeginHorizontal();
+            if (!autoScroll && GUILayout.Button("⬇ Scroll to Bottom", GUILayout.Height(20)))
+            {
+                autoScroll = true;
+                chatScrollPos.y = Mathf.Infinity;
+            }
+            EditorGUILayout.EndHorizontal();
+            
             EditorGUILayout.EndVertical();
         }
         
@@ -418,6 +452,7 @@ namespace AICodeActions.UI
             // Add user message
             conversation.AddUserMessage(message);
             userInput = "";
+            autoScroll = true; // Enable auto-scroll for new messages
             
             isProcessing = true;
             statusMessage = "AI is thinking...";
@@ -456,12 +491,16 @@ namespace AICodeActions.UI
                     conversation.AddAssistantMessage(response);
                 }
                 
+                // Save conversation after each response
+                SaveConversation();
+                autoScroll = true; // Enable auto-scroll for new messages
                 statusMessage = "Ready";
             }
             catch (Exception e)
             {
                 statusMessage = $"Error: {e.Message}";
                 conversation.AddSystemMessage($"❌ Error: {e.Message}");
+                SaveConversation();
                 Debug.LogError($"[AI Chat] {e}");
             }
             finally
@@ -498,7 +537,49 @@ namespace AICodeActions.UI
         
         private void OnDisable()
         {
-            // Chat uses main window settings, no need to save separately
+            // Save conversation history
+            SaveConversation();
+        }
+        
+        private void SaveConversation()
+        {
+            try
+            {
+                string json = JsonUtility.ToJson(conversation, false);
+                EditorPrefs.SetString("AICodeActions_ChatHistory", json);
+                Debug.Log("[AI Chat] Conversation saved");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[AI Chat] Could not save conversation: {e.Message}");
+            }
+        }
+        
+        private void LoadConversation()
+        {
+            try
+            {
+                string json = EditorPrefs.GetString("AICodeActions_ChatHistory", "");
+                
+                if (!string.IsNullOrEmpty(json))
+                {
+                    conversation = JsonUtility.FromJson<ConversationManager>(json);
+                    if (conversation == null)
+                    {
+                        conversation = new ConversationManager();
+                    }
+                    Debug.Log($"[AI Chat] Loaded conversation with {conversation.Messages.Count} messages");
+                }
+                else
+                {
+                    conversation = new ConversationManager();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[AI Chat] Could not load conversation: {e.Message}");
+                conversation = new ConversationManager();
+            }
         }
     }
 }
