@@ -27,6 +27,8 @@ namespace AICodeActions.Providers
 
         public async Task<string> GenerateAsync(string prompt, ModelParameters parameters = null)
         {
+            Debug.Log("[Gemini] GenerateAsync called");
+            
             if (!IsConfigured)
                 throw new InvalidOperationException("Gemini provider is not configured. Please set API key.");
 
@@ -36,6 +38,7 @@ namespace AICodeActions.Providers
                 : parameters.model;
 
             string url = $"{DEFAULT_ENDPOINT}{model}:generateContent?key={config.apiKey}";
+            Debug.Log($"[Gemini] Request URL: {DEFAULT_ENDPOINT}{model}:generateContent?key=***");
 
             string jsonBody = $@"{{
                 ""contents"": [{{
@@ -49,6 +52,8 @@ namespace AICodeActions.Providers
                     ""topP"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
                 }}
             }}";
+            
+            Debug.Log($"[Gemini] Request Body: {jsonBody.Substring(0, Mathf.Min(200, jsonBody.Length))}...");
 
             using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
             {
@@ -57,9 +62,13 @@ namespace AICodeActions.Providers
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
 
+                Debug.Log("[Gemini] Sending request...");
                 var operation = request.SendWebRequest();
                 while (!operation.isDone)
                     await Task.Yield();
+
+                Debug.Log($"[Gemini] Request completed. Result: {request.result}");
+                Debug.Log($"[Gemini] Response Code: {request.responseCode}");
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
