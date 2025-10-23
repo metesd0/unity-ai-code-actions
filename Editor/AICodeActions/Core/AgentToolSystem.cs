@@ -116,9 +116,9 @@ namespace AICodeActions.Core
                     sb.AppendLine("📝 **Example:**");
                     sb.AppendLine("```");
                     sb.AppendLine("[TOOL:create_and_attach_script]");
-                    sb.AppendLine("gameObjectName: Player");
-                    sb.AppendLine("scriptName: PlayerController");
-                    sb.AppendLine("scriptContent:");
+                    sb.AppendLine("gameobject_name: Player");
+                    sb.AppendLine("script_name: PlayerController");
+                    sb.AppendLine("script_content:");
                     sb.AppendLine("using UnityEngine;");
                     sb.AppendLine("");
                     sb.AppendLine("public class PlayerController : MonoBehaviour");
@@ -273,7 +273,9 @@ namespace AICodeActions.Core
                     
                     if (!looksLikeCode && (potentialKey == "gameObjectName" || potentialKey == "scriptName" || 
                         potentialKey == "scriptContent" || potentialKey == "componentType" || 
-                        potentialKey == "name" || potentialKey == "parent"))
+                        potentialKey == "name" || potentialKey == "parent" ||
+                        potentialKey == "gameobject_name" || potentialKey == "script_name" ||
+                        potentialKey == "script_content" || potentialKey == "component_type"))
                     {
                         // Save previous parameter
                         parameters[currentKey] = currentValue.ToString().Trim();
