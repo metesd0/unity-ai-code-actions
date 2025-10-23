@@ -44,12 +44,12 @@ namespace AICodeActions.Core
                 (p) => UnityAgentTools.CreateGameObject(p["name"], p.ContainsKey("parent") ? p["parent"] : null));
             
             RegisterTool("add_component",
-                "Add a component to a GameObject",
+                "Add a built-in Unity component to a GameObject (e.g., Rigidbody, CharacterController, BoxCollider). For EXISTING compiled scripts, use this. For NEW scripts, use create_and_attach_script.",
                 new string[] { "gameobject_name", "component_type" },
                 (p) => UnityAgentTools.AddComponent(p["gameobject_name"], p["component_type"]));
             
             RegisterTool("create_and_attach_script",
-                "Create a new C# script and attach it to a GameObject",
+                "Create a NEW C# script with code and attach it to a GameObject. Use this when you need to write custom behavior/logic. The script will be compiled and automatically attached.",
                 new string[] { "gameobject_name", "script_name", "script_content" },
                 (p) => UnityAgentTools.CreateAndAttachScript(p["gameobject_name"], p["script_name"], p["script_content"]));
             
