@@ -19,9 +19,10 @@ namespace AICodeActions.UI
         private AgentToolSystem agentTools;
         
         private int selectedProviderIndex = 0;
-        private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)" };
+        private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)", "OpenRouter" };
         private string apiKey = "";
         private string model = "";
+        private string openRouterModel = "openai/gpt-3.5-turbo";
         
         private bool agentMode = true; // Enable agent capabilities by default
         
@@ -76,12 +77,13 @@ namespace AICodeActions.UI
             selectedProviderIndex = EditorPrefs.GetInt("AICodeActions_Provider", 0);
             apiKey = EditorPrefs.GetString("AICodeActions_APIKey", "");
             model = EditorPrefs.GetString("AICodeActions_Model", "");
+            openRouterModel = EditorPrefs.GetString("AICodeActions_OpenRouterModel", "openai/gpt-3.5-turbo");
             string endpoint = EditorPrefs.GetString("AICodeActions_Endpoint", "");
             
             var config = new ProviderConfig
             {
                 apiKey = apiKey,
-                model = model,
+                model = selectedProviderIndex == 3 ? openRouterModel : model,
                 endpoint = endpoint
             };
             
@@ -90,10 +92,22 @@ namespace AICodeActions.UI
                 0 => new OpenAIProvider(config),
                 1 => new GeminiProvider(config),
                 2 => new OllamaProvider(config),
+                3 => CreateOpenRouterProvider(),
                 _ => null
             };
             
             Debug.Log($"[AI Chat] Loaded provider: {currentProvider?.Name} (IsConfigured: {currentProvider?.IsConfigured})");
+        }
+        
+        private IModelProvider CreateOpenRouterProvider()
+        {
+            var provider = new OpenRouterProvider();
+            var settings = new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "modelName", openRouterModel }
+            };
+            provider.Configure(apiKey, settings);
+            return provider;
         }
         
         private void OnGUI()
