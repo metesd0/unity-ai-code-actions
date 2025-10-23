@@ -351,6 +351,12 @@ namespace AICodeActions.UI
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             
+            // Drag & Drop area
+            Rect dropArea = GUILayoutUtility.GetRect(0, 30, GUILayout.ExpandWidth(true));
+            GUI.Box(dropArea, "📎 Drop files/objects here or type below", EditorStyles.helpBox);
+            
+            HandleDragAndDrop(dropArea);
+            
             GUILayout.Label("Your Message:", EditorStyles.miniLabel);
             
             inputScrollPos = EditorGUILayout.BeginScrollView(inputScrollPos, GUILayout.Height(80));
@@ -601,6 +607,170 @@ namespace AICodeActions.UI
             {
                 Debug.LogWarning($"[AI Chat] Could not load conversation: {e.Message}");
                 conversation = new ConversationManager();
+            }
+        }
+        
+        private void HandleDragAndDrop(Rect dropArea)
+        {
+            Event evt = Event.current;
+            
+            switch (evt.type)
+            {
+                case EventType.DragUpdated:
+                case EventType.DragPerform:
+                    if (!dropArea.Contains(evt.mousePosition))
+                        return;
+                    
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+                    
+                    if (evt.type == EventType.DragPerform)
+                    {
+                        DragAndDrop.AcceptDrag();
+                        
+                        foreach (UnityEngine.Object draggedObject in DragAndDrop.objectReferences)
+                        {
+                            ProcessDraggedObject(draggedObject);
+                        }
+                        
+                        // Also handle file paths
+                        foreach (string path in DragAndDrop.paths)
+                        {
+                            ProcessDraggedPath(path);
+                        }
+                    }
+                    
+                    Event.current.Use();
+                    break;
+            }
+        }
+        
+        private void ProcessDraggedObject(UnityEngine.Object obj)
+        {
+            if (obj == null) return;
+            
+            // MonoScript (C# files)
+            if (obj is MonoScript script)
+            {
+                string scriptPath = AssetDatabase.GetAssetPath(script);
+                string scriptContent = System.IO.File.ReadAllText(scriptPath);
+                
+                userInput += $"\n\n```csharp\n// File: {script.name}.cs\n{scriptContent}\n```\n";
+                conversation.AddSystemMessage($"📎 Attached script: {script.name}.cs");
+                Repaint();
+                return;
+            }
+            
+            // GameObject (from Hierarchy)
+            if (obj is GameObject go)
+            {
+                var components = go.GetComponents<Component>();
+                var info = new System.Text.StringBuilder();
+                
+                info.AppendLine($"\n\n## GameObject: {go.name}");
+                info.AppendLine($"**Active:** {go.activeSelf}");
+                info.AppendLine($"**Tag:** {go.tag}");
+                info.AppendLine($"**Layer:** {LayerMask.LayerToName(go.layer)}");
+                info.AppendLine();
+                info.AppendLine("**Components:**");
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null)
+                    {
+                        info.AppendLine($"- {comp.GetType().Name}");
+                        
+                        // Add script content if it's a MonoBehaviour
+                        if (comp is MonoBehaviour mb)
+                        {
+                            var mbScript = MonoScript.FromMonoBehaviour(mb);
+                            if (mbScript != null)
+                            {
+                                string mbPath = AssetDatabase.GetAssetPath(mbScript);
+                                if (!string.IsNullOrEmpty(mbPath) && System.IO.File.Exists(mbPath))
+                                {
+                                    string mbContent = System.IO.File.ReadAllText(mbPath);
+                                    info.AppendLine($"\n```csharp\n// Script: {mbScript.name}.cs\n{mbContent}\n```\n");
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                userInput += info.ToString();
+                conversation.AddSystemMessage($"📎 Attached GameObject: {go.name} with {components.Length} components");
+                Repaint();
+                return;
+            }
+            
+            // Prefab
+            if (PrefabUtility.IsPartOfPrefabAsset(obj))
+            {
+                string prefabPath = AssetDatabase.GetAssetPath(obj);
+                GameObject prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
+                
+                if (prefabRoot != null)
+                {
+                    var components = prefabRoot.GetComponentsInChildren<Component>();
+                    var info = new System.Text.StringBuilder();
+                    
+                    info.AppendLine($"\n\n## Prefab: {obj.name}");
+                    info.AppendLine($"**Path:** {prefabPath}");
+                    info.AppendLine();
+                    info.AppendLine("**Components:**");
+                    
+                    foreach (var comp in components)
+                    {
+                        if (comp != null)
+                            info.AppendLine($"- {comp.gameObject.name}: {comp.GetType().Name}");
+                    }
+                    
+                    userInput += info.ToString();
+                    conversation.AddSystemMessage($"📎 Attached Prefab: {obj.name}");
+                    
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                    Repaint();
+                }
+                return;
+            }
+            
+            // Scene Asset
+            if (obj is SceneAsset)
+            {
+                string scenePath = AssetDatabase.GetAssetPath(obj);
+                userInput += $"\n\n**Scene:** {obj.name}\n**Path:** {scenePath}\n";
+                conversation.AddSystemMessage($"📎 Attached Scene: {obj.name}");
+                Repaint();
+                return;
+            }
+            
+            // TextAsset (txt, json, xml, etc.)
+            if (obj is TextAsset textAsset)
+            {
+                userInput += $"\n\n```\n// File: {textAsset.name}\n{textAsset.text}\n```\n";
+                conversation.AddSystemMessage($"📎 Attached file: {textAsset.name}");
+                Repaint();
+                return;
+            }
+            
+            // Default: just add the name and type
+            userInput += $"\n\n**Asset:** {obj.name} (Type: {obj.GetType().Name})\n";
+            conversation.AddSystemMessage($"📎 Attached: {obj.name}");
+            Repaint();
+        }
+        
+        private void ProcessDraggedPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            
+            // Check if it's a .cs file
+            if (path.EndsWith(".cs") && System.IO.File.Exists(path))
+            {
+                string scriptContent = System.IO.File.ReadAllText(path);
+                string fileName = System.IO.Path.GetFileName(path);
+                
+                userInput += $"\n\n```csharp\n// File: {fileName}\n{scriptContent}\n```\n";
+                conversation.AddSystemMessage($"📎 Attached script: {fileName}");
+                Repaint();
             }
         }
     }
