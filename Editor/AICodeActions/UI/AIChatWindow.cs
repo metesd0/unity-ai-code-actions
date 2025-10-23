@@ -214,20 +214,19 @@ namespace AICodeActions.UI
             
             EditorGUILayout.EndScrollView();
             
-            // Auto-scroll to bottom only if user is already at bottom or new message added
+            // Auto-scroll logic
             if (Event.current.type == EventType.Repaint)
             {
                 // Detect if user scrolled up manually
                 if (Mathf.Abs(chatScrollPos.y - lastScrollY) > 10f)
                 {
-                    // User scrolled manually
                     if (chatScrollPos.y < lastScrollY)
                     {
-                        autoScroll = false; // User scrolled up, disable auto-scroll
+                        autoScroll = false;
                     }
                 }
                 
-                // Only auto-scroll if enabled and there are new messages
+                // Auto-scroll if enabled
                 if (autoScroll)
                 {
                     chatScrollPos.y = Mathf.Infinity;
@@ -236,14 +235,14 @@ namespace AICodeActions.UI
                 lastScrollY = chatScrollPos.y;
             }
             
-            // Re-enable auto-scroll button
-            EditorGUILayout.BeginHorizontal();
-            if (!autoScroll && GUILayout.Button("⬇ Scroll to Bottom", GUILayout.Height(20)))
+            // Always show scroll to bottom button (enabled only when needed)
+            GUI.enabled = !autoScroll;
+            if (GUILayout.Button("⬇ Scroll to Bottom", GUILayout.Height(20)))
             {
                 autoScroll = true;
                 chatScrollPos.y = Mathf.Infinity;
             }
-            EditorGUILayout.EndHorizontal();
+            GUI.enabled = true;
             
             EditorGUILayout.EndVertical();
         }

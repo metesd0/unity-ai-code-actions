@@ -86,8 +86,11 @@ namespace AICodeActions.Core
             sb.AppendLine("[TOOL:tool_name]");
             sb.AppendLine("param1: value1");
             sb.AppendLine("param2: value2");
+            sb.AppendLine("scriptContent: FULL C# CODE HERE (if creating script)");
             sb.AppendLine("[/TOOL]");
             sb.AppendLine("```");
+            sb.AppendLine();
+            sb.AppendLine("⚠️ IMPORTANT: When using create_and_attach_script, you MUST provide the COMPLETE C# script code in scriptContent parameter!");
             sb.AppendLine();
             sb.AppendLine("## Tools:");
             
@@ -104,6 +107,29 @@ namespace AICodeActions.Core
                 else
                 {
                     sb.AppendLine("**Parameters:** None");
+                }
+                
+                // Special note for script creation
+                if (tool.name == "create_and_attach_script")
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("📝 **Example:**");
+                    sb.AppendLine("```");
+                    sb.AppendLine("[TOOL:create_and_attach_script]");
+                    sb.AppendLine("gameObjectName: Player");
+                    sb.AppendLine("scriptName: PlayerController");
+                    sb.AppendLine("scriptContent:");
+                    sb.AppendLine("using UnityEngine;");
+                    sb.AppendLine("");
+                    sb.AppendLine("public class PlayerController : MonoBehaviour");
+                    sb.AppendLine("{");
+                    sb.AppendLine("    void Update()");
+                    sb.AppendLine("    {");
+                    sb.AppendLine("        // Your code here");
+                    sb.AppendLine("    }");
+                    sb.AppendLine("}");
+                    sb.AppendLine("[/TOOL]");
+                    sb.AppendLine("```");
                 }
             }
             
