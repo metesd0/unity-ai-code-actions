@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -57,9 +58,9 @@ namespace AICodeActions.Providers
                     {{""role"": ""system"", ""content"": ""You are an expert Unity C# developer assistant.""}},
                     {{""role"": ""user"", ""content"": {EscapeJson(prompt)}}}
                 ],
-                ""temperature"": {parameters.temperature},
+                ""temperature"": {parameters.temperature.ToString(CultureInfo.InvariantCulture)},
                 ""max_tokens"": {parameters.maxTokens},
-                ""top_p"": {parameters.topP}
+                ""top_p"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
             }}";
 
             using (UnityWebRequest request = new UnityWebRequest(config.endpoint, "POST"))
