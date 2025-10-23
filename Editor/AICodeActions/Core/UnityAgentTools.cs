@@ -87,7 +87,7 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
-        /// Add a component to a GameObject
+        /// Add a component to a GameObject (built-in Unity components or compiled custom scripts)
         /// </summary>
         public static string AddComponent(string gameObjectName, string componentType)
         {
@@ -97,19 +97,73 @@ namespace AICodeActions.Core
                 if (go == null)
                     return $"❌ GameObject '{gameObjectName}' not found";
                 
-                // Try to find the type
-                Type type = Type.GetType($"UnityEngine.{componentType}, UnityEngine");
+                Type type = null;
+                
+                // 1. Try built-in Unity components (UnityEngine namespace)
+                type = Type.GetType($"UnityEngine.{componentType}, UnityEngine");
+                
+                // 2. Try UnityEngine.UI namespace (for UI components)
+                if (type == null)
+                    type = Type.GetType($"UnityEngine.UI.{componentType}, UnityEngine.UI");
+                
+                // 3. Try custom scripts in current assembly
                 if (type == null)
                     type = Type.GetType(componentType);
                 
+                // 4. Search all assemblies for custom scripts
                 if (type == null)
-                    return $"❌ Component type '{componentType}' not found";
+                {
+                    foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        type = assembly.GetType(componentType);
+                        if (type != null)
+                            break;
+                    }
+                }
+                
+                // 5. Try to find MonoScript asset (for user scripts)
+                if (type == null)
+                {
+                    var scriptGuids = AssetDatabase.FindAssets($"{componentType} t:MonoScript");
+                    foreach (var guid in scriptGuids)
+                    {
+                        var path = AssetDatabase.GUIDToAssetPath(guid);
+                        var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                        if (script != null && script.name == componentType)
+                        {
+                            type = script.GetClass();
+                            if (type != null)
+                                break;
+                        }
+                    }
+                }
+                
+                if (type == null)
+                {
+                    return $"❌ Component type '{componentType}' not found\n" +
+                           $"💡 Tips:\n" +
+                           $"   - For built-in: Use exact name (e.g., 'Rigidbody', 'CharacterController')\n" +
+                           $"   - For custom scripts: Make sure the script is compiled and class name matches\n" +
+                           $"   - To create AND attach a new script, use 'create_and_attach_script' tool instead";
+                }
+                
+                // Check if component already exists
+                if (go.GetComponent(type) != null)
+                {
+                    return $"ℹ️ Component '{componentType}' already exists on {gameObjectName}";
+                }
                 
                 var component = Undo.AddComponent(go, type);
+                Debug.Log($"[AddComponent] Successfully added {componentType} to {gameObjectName}");
+                
+                // Select the GameObject to show the result
+                Selection.activeGameObject = go;
+                
                 return $"✅ Added {componentType} to {gameObjectName}";
             }
             catch (Exception e)
             {
+                Debug.LogError($"[AddComponent] Error: {e}");
                 return $"❌ Error adding component: {e.Message}";
             }
         }
