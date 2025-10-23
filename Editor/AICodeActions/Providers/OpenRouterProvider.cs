@@ -19,6 +19,8 @@ namespace AICodeActions.Providers
         private const string baseUrl = "https://openrouter.ai/api/v1";
         
         public string Name => "OpenRouter";
+        public bool IsConfigured => !string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelName);
+        public bool RequiresApiKey => true;
         
         public void Configure(string apiKey, Dictionary<string, object> settings = null)
         {
@@ -38,17 +40,14 @@ namespace AICodeActions.Providers
             Debug.Log($"[OpenRouter] Configured with model: {modelName}");
         }
         
-        public async Task<string> GenerateAsync(string prompt, GenerationParameters parameters)
+        public async Task<string> GenerateAsync(string prompt, ModelParameters parameters = null)
         {
-            if (string.IsNullOrEmpty(apiKey))
+            if (!IsConfigured)
             {
-                throw new Exception("OpenRouter API key not configured");
+                throw new Exception("OpenRouter provider is not configured. Please set API key and model.");
             }
             
-            if (string.IsNullOrEmpty(modelName))
-            {
-                throw new Exception("OpenRouter model name not configured");
-            }
+            parameters = parameters ?? new ModelParameters();
             
             string url = $"{baseUrl}/chat/completions";
             
@@ -92,7 +91,27 @@ namespace AICodeActions.Providers
             }
         }
         
-        private string BuildRequestBody(string prompt, GenerationParameters parameters)
+        public async Task<bool> ValidateConnectionAsync()
+        {
+            try
+            {
+                if (!IsConfigured)
+                {
+                    return false;
+                }
+                
+                // Try a simple test request
+                await GenerateAsync("Say 'OK' if you can read this.", new ModelParameters { maxTokens = 10 });
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[OpenRouter] Connection validation failed: {e.Message}");
+                return false;
+            }
+        }
+        
+        private string BuildRequestBody(string prompt, ModelParameters parameters)
         {
             // Use InvariantCulture for consistent decimal formatting (dot instead of comma)
             string tempStr = parameters.temperature.ToString(CultureInfo.InvariantCulture);
