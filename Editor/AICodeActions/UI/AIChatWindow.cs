@@ -533,27 +533,28 @@ namespace AICodeActions.UI
         
         private void ShowSettings()
         {
-            // Simple settings dialog (you can expand this to a proper window)
-            GenericMenu menu = new GenericMenu();
-            
-            menu.AddItem(new GUIContent("Provider/OpenAI"), selectedProviderIndex == 0, () => selectedProviderIndex = 0);
-            menu.AddItem(new GUIContent("Provider/Gemini"), selectedProviderIndex == 1, () => selectedProviderIndex = 1);
-            menu.AddItem(new GUIContent("Provider/Ollama (Local)"), selectedProviderIndex == 2, () => selectedProviderIndex = 2);
-            menu.AddSeparator("");
-            menu.AddItem(new GUIContent("Configure API Key"), false, ShowAPIKeyDialog);
-            
-            menu.ShowAsContext();
+            AIChatSettingsWindow.ShowWindow(this);
         }
         
-        private void ShowAPIKeyDialog()
+        public void ApplySettings(int providerIndex, string newApiKey, string newModel, string newOpenRouterModel)
         {
-            // Open main window for configuration
-            if (EditorUtility.DisplayDialog("Configure Provider", 
-                "Chat window uses the same provider settings as the main AI Code Actions window.\n\nOpen main window to configure?", 
-                "Yes", "Cancel"))
-            {
-                AICodeActionsWindow.ShowWindow();
-            }
+            selectedProviderIndex = providerIndex;
+            apiKey = newApiKey;
+            model = newModel;
+            openRouterModel = newOpenRouterModel;
+            
+            // Save to EditorPrefs so main window also uses these
+            EditorPrefs.SetInt("AICodeActions_Provider", selectedProviderIndex);
+            EditorPrefs.SetString("AICodeActions_APIKey", apiKey);
+            EditorPrefs.SetString("AICodeActions_Model", model);
+            EditorPrefs.SetString("AICodeActions_OpenRouterModel", openRouterModel);
+            
+            // Recreate provider with new settings
+            LoadPreferencesFromMainWindow();
+            
+            conversation.AddSystemMessage($"✅ Settings updated! Provider: {currentProvider?.Name}, Model: {(selectedProviderIndex == 3 ? openRouterModel : model)}");
+            statusMessage = "Settings applied";
+            Repaint();
         }
         
         private void OnDisable()
