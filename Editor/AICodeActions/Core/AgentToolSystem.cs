@@ -238,18 +238,82 @@ namespace AICodeActions.Core
             var parameters = new Dictionary<string, string>();
             var lines = paramSection.Split('\n');
             
-            foreach (var line in lines)
+            string currentKey = null;
+            var currentValue = new StringBuilder();
+            
+            for (int i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var trimmed = line.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
                 
+                // Skip empty lines at the start
+                if (string.IsNullOrEmpty(trimmed) && currentKey == null) continue;
+                
+                // Check if this is a new parameter (key: value format)
                 int colonIndex = trimmed.IndexOf(':');
-                if (colonIndex > 0)
+                
+                // New parameter detection: has colon AND not inside code block
+                bool isNewParam = colonIndex > 0 && colonIndex < 50; // Keys are usually short
+                
+                if (isNewParam && currentKey == null)
                 {
-                    string key = trimmed.Substring(0, colonIndex).Trim();
-                    string value = trimmed.Substring(colonIndex + 1).Trim();
-                    parameters[key] = value;
+                    // First parameter
+                    currentKey = trimmed.Substring(0, colonIndex).Trim();
+                    string restOfLine = trimmed.Substring(colonIndex + 1).Trim();
+                    if (!string.IsNullOrEmpty(restOfLine))
+                    {
+                        currentValue.Append(restOfLine);
+                    }
                 }
+                else if (isNewParam && !string.IsNullOrEmpty(currentKey))
+                {
+                    // Check if this looks like a new parameter (not code like "void Update():")
+                    string potentialKey = trimmed.Substring(0, colonIndex).Trim();
+                    bool looksLikeCode = potentialKey.Contains(" ") || potentialKey.Contains("(") || potentialKey.Contains(")");
+                    
+                    if (!looksLikeCode && (potentialKey == "gameObjectName" || potentialKey == "scriptName" || 
+                        potentialKey == "scriptContent" || potentialKey == "componentType" || 
+                        potentialKey == "name" || potentialKey == "parent"))
+                    {
+                        // Save previous parameter
+                        parameters[currentKey] = currentValue.ToString().Trim();
+                        currentValue.Clear();
+                        
+                        // Start new parameter
+                        currentKey = potentialKey;
+                        string restOfLine = trimmed.Substring(colonIndex + 1).Trim();
+                        if (!string.IsNullOrEmpty(restOfLine))
+                        {
+                            currentValue.Append(restOfLine);
+                        }
+                    }
+                    else
+                    {
+                        // Part of multi-line value (code)
+                        if (currentValue.Length > 0) currentValue.AppendLine();
+                        currentValue.Append(line); // Use original line to preserve indentation
+                    }
+                }
+                else if (currentKey != null)
+                {
+                    // Continue multi-line value
+                    if (currentValue.Length > 0) currentValue.AppendLine();
+                    currentValue.Append(line); // Preserve original indentation
+                }
+            }
+            
+            // Save last parameter
+            if (currentKey != null)
+            {
+                parameters[currentKey] = currentValue.ToString().Trim();
+            }
+            
+            // Debug log
+            Debug.Log($"[AgentToolSystem] Parsed {parameters.Count} parameters:");
+            foreach (var kvp in parameters)
+            {
+                string preview = kvp.Value.Length > 100 ? kvp.Value.Substring(0, 100) + "..." : kvp.Value;
+                Debug.Log($"  - {kvp.Key}: {preview}");
             }
             
             return parameters;
