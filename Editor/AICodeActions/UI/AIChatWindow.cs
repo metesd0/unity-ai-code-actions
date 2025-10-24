@@ -502,6 +502,11 @@ namespace AICodeActions.UI
             // Save scroll position to prevent jumping
             float savedScrollY = chatScrollPos.y;
             
+            // Retry logic for reliability
+            int maxRetries = 3;
+            int retryCount = 0;
+            string response = "";
+            
             try
             {
                 // Build prompt with conversation context and tools (if agent mode)
@@ -511,15 +516,57 @@ namespace AICodeActions.UI
                 string systemPrompt = "You are an expert Unity AI assistant.";
                 if (agentMode)
                 {
-                    systemPrompt += " You have access to Unity tools that let you see and modify the scene. Use them when appropriate to help the user.";
+                    systemPrompt = @"You are an ADVANCED Unity AI Agent with full scene control capabilities.
+
+## 🎯 YOUR MISSION:
+Execute user requests COMPLETELY and RELIABLY. Never give up after errors. Always complete the full task.
+
+## ⚡ CRITICAL RULES:
+1. **ALWAYS USE TOOLS** - You have powerful Unity tools. USE THEM for EVERY action!
+2. **COMPLETE ALL STEPS** - If user asks for a 'First Person Controller', you MUST:
+   - Create the Player GameObject
+   - Create the FirstPersonController script with FULL working code
+   - ATTACH the script to Player (use create_and_attach_script tool!)
+   - Add CharacterController component (use add_component tool!)
+   - Create and attach Camera as child
+   - Set all necessary properties
+3. **NEVER SKIP STEPS** - Do ALL steps, not just some!
+4. **VERIFY SUCCESS** - After each tool, check the result. If it failed, try again differently!
+5. **BE DETERMINISTIC** - Same request = Same reliable result every time!
+
+## 🛠️ AVAILABLE TOOLS (USE THEM!):
+- create_gameobject(name, parent) - Create empty GameObject
+- create_primitive(type, name, x, y, z) - Create Cube/Sphere/etc
+- create_and_attach_script(gameobject_name, script_name, script_content) - CREATE AND ATTACH script!
+- add_component(gameobject_name, component_type) - Add CharacterController/Rigidbody/etc
+- set_component_property(gameobject, component, property, value) - Configure components
+- create_camera(name, fov) - Create camera
+- set_parent(child, parent) - Parent objects
+- get_scene_info() - See current scene
+- And 30+ more tools for complete Unity control!
+
+## 💪 EXECUTION STRATEGY:
+1. **Plan** - Break down the task into clear steps
+2. **Execute** - Use tools for EACH step
+3. **Verify** - Check each result
+4. **Complete** - Finish EVERYTHING the user asked for
+5. **Report** - Tell user what you did
+
+## ⚠️ ERROR HANDLING:
+- If a tool fails → Try alternative approach
+- If script compilation fails → Check syntax and try again
+- If component not found → Use create_and_attach_script instead
+- NEVER give up! Keep trying until success!";
                     
                     // Add context awareness
                     string contextSummary = agentTools.GetContextSummary();
                     if (!string.IsNullOrEmpty(contextSummary))
                     {
-                        systemPrompt += "\n\n## Recent Context:\n" + contextSummary;
-                        systemPrompt += "\n💡 When user says 'this script', 'that object', 'the last one', etc., refer to the recent context above.";
+                        systemPrompt += "\n\n## 📝 RECENT CONTEXT:\n" + contextSummary;
+                        systemPrompt += "\n\n💡 When user says 'this script', 'that object', 'the last one', etc., refer to recent context above.";
                     }
+                    
+                    systemPrompt += "\n\n## 🚀 NOW EXECUTE THE USER'S REQUEST FULLY AND COMPLETELY!";
                 }
                 
                 string fullPrompt = $"{systemPrompt}\n\n{toolsInfo}\n\n{contextPrompt}\n\nUser: {message}\n\nAssistant:";
@@ -530,13 +577,80 @@ namespace AICodeActions.UI
                     maxTokens = agentMode ? 3072 : 2048
                 };
                 
-                string response = await currentProvider.GenerateAsync(fullPrompt, parameters);
+                // Retry loop for reliability
+                while (retryCount < maxRetries)
+                {
+                    try
+                    {
+                        response = await currentProvider.GenerateAsync(fullPrompt, parameters);
+                        
+                        // Check if response is empty or too short
+                        if (string.IsNullOrWhiteSpace(response) || response.Trim().Length < 5)
+                        {
+                            retryCount++;
+                            if (retryCount < maxRetries)
+                            {
+                                statusMessage = $"⚠️ Empty response, retrying ({retryCount}/{maxRetries})...";
+                                Repaint();
+                                await System.Threading.Tasks.Task.Delay(1000); // Wait 1 second
+                                continue;
+                            }
+                            else
+                            {
+                                response = "❌ AI returned empty response after 3 attempts. Please try again or check your API settings.";
+                            }
+                        }
+                        
+                        // Success - break retry loop
+                        break;
+                    }
+                    catch (Exception retryEx)
+                    {
+                        retryCount++;
+                        if (retryCount < maxRetries)
+                        {
+                            statusMessage = $"⚠️ Error, retrying ({retryCount}/{maxRetries})...";
+                            Repaint();
+                            await System.Threading.Tasks.Task.Delay(1000);
+                            continue;
+                        }
+                        else
+                        {
+                            throw; // Re-throw if all retries failed
+                        }
+                    }
+                }
                 
-                // Process tool calls if in agent mode
+                // Process tool calls if in agent mode with real-time feedback
                 if (agentMode)
                 {
+                    // Add initial AI response
+                    conversation.AddAssistantMessage("🤖 Processing your request...\n");
+                    Repaint(); // Show immediately
+                    
+                    // Process tools and update message with progress
+                    var toolCallMatches = System.Text.RegularExpressions.Regex.Matches(response, @"\[TOOL:(\w+)\((.*?)\)\]");
+                    
+                    if (toolCallMatches.Count > 0)
+                    {
+                        string progressMessage = $"🛠️ Executing {toolCallMatches.Count} tool(s):\n\n";
+                        
+                        for (int i = 0; i < toolCallMatches.Count; i++)
+                        {
+                            string toolName = toolCallMatches[i].Groups[1].Value;
+                            progressMessage += $"  {i+1}. ⏳ {toolName}...\n";
+                        }
+                        
+                        // Update message with tool list
+                        conversation.messages[conversation.messages.Count - 1].content = progressMessage;
+                        Repaint();
+                    }
+                    
+                    // Now actually process the tools
                     string processedResponse = agentTools.ProcessToolCalls(response);
-                    conversation.AddAssistantMessage(processedResponse);
+                    
+                    // Replace with final result
+                    conversation.messages[conversation.messages.Count - 1].content = processedResponse;
                 }
                 else
                 {
