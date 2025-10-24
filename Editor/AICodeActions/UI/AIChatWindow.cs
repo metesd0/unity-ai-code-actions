@@ -909,12 +909,29 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
         private bool IsResponseIncomplete(string rawResponse, string processedResponse)
         {
             // STRENGTHENED AUTO-CONTINUE DETECTION (solution.md requirements)
+            // SMART MODE: Don't trigger if agent is asking questions or presenting options
             
-            // 1. Response ends abruptly (no closing marks)
+            string lowerResponse = rawResponse.ToLower();
+            
+            // SMART CHECK: If agent is presenting options/asking questions, don't auto-continue
+            if (rawResponse.TrimEnd().EndsWith("?") || 
+                lowerResponse.Contains("seçenek") || 
+                lowerResponse.Contains("options") ||
+                lowerResponse.Contains("ne yapmak istersiniz") ||
+                lowerResponse.Contains("what would you like") ||
+                lowerResponse.Contains("nasıl yardımcı olabilirim") ||
+                lowerResponse.Contains("how can i help"))
+            {
+                Debug.Log("[Auto-Continue] Agent is asking questions - no auto-continue needed");
+                return false;
+            }
+            
+            // 1. Response ends abruptly (no closing marks) - BUT not if it ends with "?"
             if (!rawResponse.TrimEnd().EndsWith("]") && 
                 !rawResponse.TrimEnd().EndsWith("!") && 
                 !rawResponse.TrimEnd().EndsWith(".") &&
-                !rawResponse.TrimEnd().EndsWith("```"))
+                !rawResponse.TrimEnd().EndsWith("```") &&
+                !rawResponse.TrimEnd().EndsWith("?"))
             {
                 Debug.Log("[Auto-Continue] Response seems incomplete (no proper ending)");
                 return true;
@@ -959,10 +976,12 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                 return true;
             }
             
-            // 5. NEW: Plan says "create" but < 3 tools executed
-            if (rawResponse.ToLower().Contains("plan:") && toolOpenCount < 3)
+            // 5. NEW: Plan says "create" but < 3 tools executed - ONLY if plan promises specific actions
+            if (lowerResponse.Contains("plan:") && toolOpenCount < 3 && toolOpenCount > 0 &&
+                (lowerResponse.Contains("i'll") || lowerResponse.Contains("i will") || 
+                 lowerResponse.Contains("yapacağım") || lowerResponse.Contains("oluşturacağım")))
             {
-                Debug.Log($"[Auto-Continue] Has plan but only {toolOpenCount} tools");
+                Debug.Log($"[Auto-Continue] Has plan with promises but only {toolOpenCount} tools");
                 return true;
             }
             
@@ -988,10 +1007,14 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                 return true;
             }
             
-            // 9. NEW: Response has fewer than 2 tools (likely incomplete)
-            if (toolOpenCount > 0 && toolOpenCount < 2)
+            // 9. NEW: Response has only 1 tool AND promises more (likely incomplete)
+            // SMART: Don't trigger if 0 tools (agent just talking) or if no promises
+            if (toolOpenCount == 1 && 
+                (lowerResponse.Contains("i'll") || lowerResponse.Contains("i will") || 
+                 lowerResponse.Contains("yapacağım") || lowerResponse.Contains("oluşturacağım") ||
+                 lowerResponse.Contains("i'm creating") || lowerResponse.Contains("oluşturuyorum")))
             {
-                Debug.Log($"[Auto-Continue] Only {toolOpenCount} tool(s) - seems incomplete");
+                Debug.Log($"[Auto-Continue] Only 1 tool but promises more - seems incomplete");
                 return true;
             }
             
