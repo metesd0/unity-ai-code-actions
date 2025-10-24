@@ -411,26 +411,27 @@ namespace AICodeActions.Core
                 
                 AssetDatabase.Refresh();
                 
-                // Wait for compilation using EditorApplication.update
+                // Wait for compilation using delayCall (more reliable than update)
                 double startTime = EditorApplication.timeSinceStartup;
-                int maxWaitTime = 15; // Maximum 15 seconds
-                int checkInterval = 0;
+                int maxWaitTime = 20; // Maximum 20 seconds
+                int attemptCount = 0;
                 
                 void CheckAndAttach()
                 {
-                    checkInterval++;
+                    attemptCount++;
                     double elapsed = EditorApplication.timeSinceStartup - startTime;
                     
-                    // Only check every 10 frames (roughly every 0.3 seconds at 60fps)
-                    if (checkInterval % 10 != 0)
-                        return;
+                    Debug.Log($"[Attach] Attempt #{attemptCount} for {scriptName} (elapsed: {elapsed:F1}s)");
                     
                     // Timeout after max wait time
                     if (elapsed > maxWaitTime)
                     {
-                        EditorApplication.update -= CheckAndAttach;
-                        Debug.LogError($"❌ Timeout: Could not attach {scriptName} after {maxWaitTime}s. Script may have compilation errors.");
-                        Debug.LogError($"💡 Check Console for compilation errors or manually attach the script to {gameObjectName}");
+                        Debug.LogError($"❌ Timeout: Could not attach {scriptName} after {maxWaitTime}s");
+                        Debug.LogError($"💡 Possible issues:\n" +
+                            $"   - Script has compilation errors (check Console)\n" +
+                            $"   - Class name doesn't match file name '{scriptName}'\n" +
+                            $"   - Script is not inheriting from MonoBehaviour\n" +
+                            $"💡 Try: Drag {scriptName}.cs to '{gameObjectName}' in Inspector");
                         return;
                     }
                     
@@ -438,19 +439,20 @@ namespace AICodeActions.Core
                     var go = GameObject.Find(gameObjectName);
                     if (go == null)
                     {
-                        // GameObject might not exist yet or wrong name
-                        if (elapsed > 2) // Only log after 2 seconds
-                        {
-                            Debug.LogWarning($"[{elapsed:F1}s] GameObject '{gameObjectName}' not found. Waiting...");
-                        }
+                        Debug.LogWarning($"[Attach] GameObject '{gameObjectName}' not found, retrying...");
+                        EditorApplication.delayCall += CheckAndAttach;
                         return;
                     }
+                    
+                    // Force refresh
+                    AssetDatabase.Refresh();
                     
                     // Try to load script
                     var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
                     if (script == null)
                     {
-                        Debug.LogWarning($"[{elapsed:F1}s] Script asset not loaded yet. Waiting...");
+                        Debug.LogWarning($"[Attach] Script asset '{path}' not loaded yet, retrying...");
+                        EditorApplication.delayCall += CheckAndAttach;
                         return;
                     }
                     
@@ -458,17 +460,15 @@ namespace AICodeActions.Core
                     var scriptClass = script.GetClass();
                     if (scriptClass != null)
                     {
-                        // Success! Remove update callback
-                        EditorApplication.update -= CheckAndAttach;
-                        
-                        // Check if component already exists
+                        // Success! Attach it
                         if (go.GetComponent(scriptClass) == null)
                         {
                             Undo.AddComponent(go, scriptClass);
-                            Debug.Log($"✅ Successfully attached {scriptName} to {gameObjectName} (after {elapsed:F1}s)");
+                            Debug.Log($"✅✅✅ ATTACHED {scriptName} to {gameObjectName}! (took {elapsed:F1}s, {attemptCount} attempts)");
                             
-                            // Select the GameObject to show it worked
+                            // Select GameObject and ping it
                             Selection.activeGameObject = go;
+                            EditorGUIUtility.PingObject(go);
                         }
                         else
                         {
@@ -477,16 +477,14 @@ namespace AICodeActions.Core
                     }
                     else
                     {
-                        // Still compiling
-                        if (checkInterval % 30 == 0) // Log every 30 checks
-                        {
-                            Debug.Log($"[{elapsed:F1}s] Waiting for {scriptName} to compile...");
-                        }
+                        // Not compiled yet, retry
+                        Debug.LogWarning($"[Attach] {scriptName} not compiled yet, retrying...");
+                        EditorApplication.delayCall += CheckAndAttach;
                     }
                 }
                 
-                // Register update callback
-                EditorApplication.update += CheckAndAttach;
+                // Start checking with delayCall
+                EditorApplication.delayCall += CheckAndAttach;
                 
                 return $"✅ Created script {scriptName}.cs ({scriptContent.Length} chars)\n⏳ Attaching to {gameObjectName} after compilation...";
             }
