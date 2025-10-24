@@ -26,6 +26,13 @@ namespace AICodeActions.UI
         
         private bool agentMode = true; // Enable agent capabilities by default
         
+        // Context tracking for better AI understanding
+        private string lastCreatedScript = "";
+        private string lastCreatedGameObject = "";
+        private string lastModifiedGameObject = "";
+        private System.Collections.Generic.List<string> recentScripts = new System.Collections.Generic.List<string>();
+        private System.Collections.Generic.List<string> recentGameObjects = new System.Collections.Generic.List<string>();
+        
         private string userInput = "";
         private Vector2 chatScrollPos;
         private Vector2 inputScrollPos;
@@ -505,6 +512,14 @@ namespace AICodeActions.UI
                 if (agentMode)
                 {
                     systemPrompt += " You have access to Unity tools that let you see and modify the scene. Use them when appropriate to help the user.";
+                    
+                    // Add context awareness
+                    string contextSummary = agentTools.GetContextSummary();
+                    if (!string.IsNullOrEmpty(contextSummary))
+                    {
+                        systemPrompt += "\n\n## Recent Context:\n" + contextSummary;
+                        systemPrompt += "\n💡 When user says 'this script', 'that object', 'the last one', etc., refer to the recent context above.";
+                    }
                 }
                 
                 string fullPrompt = $"{systemPrompt}\n\n{toolsInfo}\n\n{contextPrompt}\n\nUser: {message}\n\nAssistant:";
