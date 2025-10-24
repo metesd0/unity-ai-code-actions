@@ -61,6 +61,11 @@ namespace AICodeActions.UI
         
         private void OnEnable()
         {
+            // Reset state
+            isProcessing = false;
+            cancellationTokenSource = null;
+            statusMessage = "Ready";
+            
             // Use same preferences as main window
             LoadPreferencesFromMainWindow();
             agentTools = new AgentToolSystem();
@@ -966,6 +971,14 @@ Use <thinking> tags EVERY TIME before tool execution.";
         
         private void OnDisable()
         {
+            // Cancel any ongoing requests
+            if (cancellationTokenSource != null)
+            {
+                cancellationTokenSource.Cancel();
+                cancellationTokenSource.Dispose();
+                cancellationTokenSource = null;
+            }
+            
             // Save conversation history
             SaveConversation();
         }
