@@ -43,7 +43,7 @@ namespace AICodeActions.Core
                 
                 // Write modified content
                 System.IO.File.WriteAllText(scriptPath, newContent);
-                AssetDatabase.Refresh();
+                // Unity auto-imports - no need to block UI with Refresh()
                 
                 Debug.Log($"[ModifyScript] Modified {scriptName}.cs");
                 
@@ -112,7 +112,7 @@ namespace AICodeActions.Core
                 
                 // Write modified content
                 System.IO.File.WriteAllText(scriptPath, newContent);
-                AssetDatabase.Refresh();
+                // Unity auto-imports - no need to block UI with Refresh()
                 
                 Debug.Log($"[AddMethodToScript] Added method to {scriptName}.cs");
                 
@@ -169,7 +169,7 @@ namespace AICodeActions.Core
                 
                 // Write modified content
                 System.IO.File.WriteAllText(scriptPath, newContent);
-                AssetDatabase.Refresh();
+                // Unity auto-imports - no need to block UI with Refresh()
                 
                 Debug.Log($"[AddFieldToScript] Added field to {scriptName}.cs");
                 
