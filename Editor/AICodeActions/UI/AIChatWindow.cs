@@ -926,7 +926,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                         conversation.UpdateLastAssistantMessage(progress);
                         Repaint();
                         autoScroll = true;
-                    });
+                    }, currentDetailLevel.ToString());
                     
                     // Replace with final result
                     conversation.UpdateLastAssistantMessage(processedResponse);
@@ -1227,7 +1227,7 @@ NOW - EXECUTE THE REMAINING TOOLS CORRECTLY!";
                     conversation.UpdateLastAssistantMessage(progress);
                     Repaint();
                     autoScroll = true;
-                });
+                }, currentDetailLevel.ToString());
                 
                 conversation.UpdateLastAssistantMessage(processedResponse);
                 SaveConversation();

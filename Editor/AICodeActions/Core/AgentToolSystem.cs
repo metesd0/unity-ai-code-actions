@@ -523,7 +523,7 @@ namespace AICodeActions.Core
         /// Process tool calls with progress callback for live UI updates
         /// NEW: Compact format + detailed view support + guard rails
         /// </summary>
-        public string ProcessToolCallsWithProgress(string response, Action<string> progressCallback)
+        public string ProcessToolCallsWithProgress(string response, Action<string> progressCallback, string detailLevel = "Normal")
         {
             var result = new StringBuilder();
             var detailedLog = new StringBuilder(); // For expandable details
@@ -541,9 +541,13 @@ namespace AICodeActions.Core
             result.AppendLine("🤖 **AI Agent** (Live Execution)");
             result.AppendLine();
             
-            detailedLog.AppendLine("## 📋 Full AI Response:");
-            detailedLog.AppendLine(response);
-            detailedLog.AppendLine();
+            // Only show full AI response in Detailed mode
+            if (detailLevel == "Detailed")
+            {
+                detailedLog.AppendLine("## 📋 Full AI Response:");
+                detailedLog.AppendLine(response);
+                detailedLog.AppendLine();
+            }
             
             // Notify start
             progressCallback?.Invoke(result.ToString());
@@ -595,23 +599,41 @@ namespace AICodeActions.Core
                 
                 string compactResult = GetCompactResult(toolResult);
                 
-                // DETAILED LOG: Full details for expandable section
-                detailedLog.AppendLine($"### 🔧 Tool {toolCount}: {toolName}");
-                detailedLog.AppendLine($"**Parameters:**");
-                foreach (var param in parameters)
+                // DETAILED LOG: Format based on detail level
+                if (detailLevel == "Compact")
                 {
-                    string valuePreview = param.Value.Length > 150 
-                        ? param.Value.Substring(0, 150) + "..." 
-                        : param.Value;
-                    detailedLog.AppendLine($"- `{param.Key}`: {valuePreview}");
+                    // COMPACT: Just show tool name + compact result
+                    detailedLog.AppendLine($"**{toolCount}.** `{toolName}` {icon} {compactResult} ({elapsed:F3}s)");
                 }
-                detailedLog.AppendLine();
-                detailedLog.AppendLine($"**Execution Time:** {elapsed:F3}s");
-                detailedLog.AppendLine($"**Result:**");
-                detailedLog.AppendLine(toolResult);
-                detailedLog.AppendLine();
-                detailedLog.AppendLine("---");
-                detailedLog.AppendLine();
+                else if (detailLevel == "Normal")
+                {
+                    // NORMAL: Show params summary + compact result
+                    detailedLog.AppendLine($"### 🔧 Tool {toolCount}: {toolName}");
+                    detailedLog.AppendLine($"**Parameters:** {paramSummary}");
+                    detailedLog.AppendLine($"**Execution Time:** {elapsed:F3}s");
+                    detailedLog.AppendLine($"**Result:** {compactResult}");
+                    detailedLog.AppendLine();
+                }
+                else // Detailed
+                {
+                    // DETAILED: Full everything
+                    detailedLog.AppendLine($"### 🔧 Tool {toolCount}: {toolName}");
+                    detailedLog.AppendLine($"**Parameters:**");
+                    foreach (var param in parameters)
+                    {
+                        string valuePreview = param.Value.Length > 150 
+                            ? param.Value.Substring(0, 150) + "..." 
+                            : param.Value;
+                        detailedLog.AppendLine($"- `{param.Key}`: {valuePreview}");
+                    }
+                    detailedLog.AppendLine();
+                    detailedLog.AppendLine($"**Execution Time:** {elapsed:F3}s");
+                    detailedLog.AppendLine($"**Result:**");
+                    detailedLog.AppendLine(toolResult);
+                    detailedLog.AppendLine();
+                    detailedLog.AppendLine("---");
+                    detailedLog.AppendLine();
+                }
                 
                 // Update UI after each tool with final status
                 progressCallback?.Invoke(result.ToString());
@@ -689,7 +711,33 @@ namespace AICodeActions.Core
         /// </summary>
         private string GetCompactResult(string fullResult)
         {
-            // Extract first meaningful line
+            // Special compact summaries for verbose tools
+            if (fullResult.Contains("# Scene:"))
+            {
+                // Extract just the scene name and object count
+                var match = System.Text.RegularExpressions.Regex.Match(fullResult, @"# Scene: (\w+).*Root GameObjects: (\d+)", System.Text.RegularExpressions.RegexOptions.Singleline);
+                if (match.Success)
+                    return $"Scene '{match.Groups[1].Value}' ({match.Groups[2].Value} objects)";
+            }
+            
+            if (fullResult.Contains("# Project Statistics"))
+            {
+                // Extract key stats
+                var scripts = System.Text.RegularExpressions.Regex.Match(fullResult, @"Scripts: (\d+)");
+                var scenes = System.Text.RegularExpressions.Regex.Match(fullResult, @"Scenes: (\d+)");
+                if (scripts.Success && scenes.Success)
+                    return $"{scripts.Groups[1].Value} scripts, {scenes.Groups[1].Value} scenes";
+            }
+            
+            if (fullResult.Contains("# GameObject:"))
+            {
+                // Extract object name and component count
+                var match = System.Text.RegularExpressions.Regex.Match(fullResult, @"# GameObject: (\w+).*Components \((\d+)\)", System.Text.RegularExpressions.RegexOptions.Singleline);
+                if (match.Success)
+                    return $"'{match.Groups[1].Value}' ({match.Groups[2].Value} components)";
+            }
+            
+            // Default: Extract first meaningful line
             var lines = fullResult.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length > 0)
             {
