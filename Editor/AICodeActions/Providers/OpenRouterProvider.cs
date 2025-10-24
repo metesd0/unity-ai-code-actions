@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using AICodeActions.Core;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -21,6 +23,7 @@ namespace AICodeActions.Providers
         public string Name => "OpenRouter";
         public bool IsConfigured => !string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelName);
         public bool RequiresApiKey => true;
+        public bool SupportsStreaming => false; // TODO: Implement later (same as OpenAI)
         
         public void Configure(string apiKey, Dictionary<string, object> settings = null)
         {
@@ -253,6 +256,15 @@ namespace AICodeActions.Providers
             
             sb.Append("\"");
             return sb.ToString();
+        }
+        
+        public Task StreamGenerateAsync(
+            string prompt,
+            ModelParameters parameters,
+            Action<StreamChunk> onChunk,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException("OpenRouter streaming will be implemented in Phase 2");
         }
     }
 }
