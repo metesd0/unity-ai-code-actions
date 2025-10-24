@@ -130,7 +130,7 @@ namespace AICodeActions.Core
                 new string[] { "gameobject_name", "script_name", "script_content" },
                 (p) => UnityAgentTools.CreateAndAttachScript(p["gameobject_name"], p["script_name"], p["script_content"]));
             
-            // Advanced Script Manipulation
+                // Advanced Script Manipulation
             RegisterTool("modify_script",
                 "Modify an existing script by appending code (for simple modifications)",
                 new string[] { "script_name", "modifications" },
@@ -515,6 +515,14 @@ namespace AICodeActions.Core
         /// </summary>
         public string ProcessToolCalls(string response)
         {
+            return ProcessToolCallsWithProgress(response, null);
+        }
+        
+        /// <summary>
+        /// Process tool calls with progress callback for live UI updates
+        /// </summary>
+        public string ProcessToolCallsWithProgress(string response, Action<string> progressCallback)
+        {
             var result = new StringBuilder();
             
             // Check if response contains tool calls
@@ -532,6 +540,9 @@ namespace AICodeActions.Core
             result.AppendLine("---");
             result.AppendLine("## Tool Execution Results:");
             result.AppendLine();
+            
+            // Notify start
+            progressCallback?.Invoke(result.ToString());
             
             // Find all tool calls in format [TOOL:name]...[/TOOL]
             int startIndex = 0;
@@ -567,7 +578,12 @@ namespace AICodeActions.Core
                     result.AppendLine($"- {param.Key}: {valuePreview}");
                 }
                 result.AppendLine();
+                result.AppendLine($"⏳ Executing **{toolName}**...");
                 
+                // Update UI with progress
+                progressCallback?.Invoke(result.ToString());
+                
+                result.AppendLine();
                 result.AppendLine("**Result:**");
                 string toolResult = ExecuteTool(toolName, parameters);
                 result.AppendLine(toolResult);
@@ -578,6 +594,9 @@ namespace AICodeActions.Core
                 
                 result.AppendLine("---");
                 result.AppendLine();
+                
+                // Update UI after each tool
+                progressCallback?.Invoke(result.ToString());
                 
                 startIndex = toolEnd + 7;
             }

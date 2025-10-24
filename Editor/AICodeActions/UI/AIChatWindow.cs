@@ -709,7 +709,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                 var parameters = new ModelParameters
                 {
                     temperature = 0.7f,
-                    maxTokens = agentMode ? 3072 : 2048
+                    maxTokens = agentMode ? 6144 : 2048 // Boosted for complex tasks
                 };
                 
                 // Retry loop for reliability
@@ -769,29 +769,35 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                     conversation.AddAssistantMessage("🤖 Processing your request...\n");
                     Repaint(); // Show immediately
                     
-                    // Process tools and update message with progress
-                    var toolCallMatches = System.Text.RegularExpressions.Regex.Matches(response, @"\[TOOL:(\w+)\((.*?)\)\]");
-                    
-                    if (toolCallMatches.Count > 0)
+                    // Process tools with live progress updates
+                    string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
                     {
-                        string progressMessage = $"🛠️ Executing {toolCallMatches.Count} tool(s):\n\n";
-                        
-                        for (int i = 0; i < toolCallMatches.Count; i++)
-                        {
-                            string toolName = toolCallMatches[i].Groups[1].Value;
-                            progressMessage += $"  {i+1}. ⏳ {toolName}...\n";
-                        }
-                        
-                        // Update message with tool list
-                        conversation.UpdateLastAssistantMessage(progressMessage);
+                        // Update UI in real-time as each tool executes
+                        conversation.UpdateLastAssistantMessage(progress);
                         Repaint();
-                    }
-                    
-                    // Now actually process the tools
-                    string processedResponse = agentTools.ProcessToolCalls(response);
+                        autoScroll = true;
+                    });
                     
                     // Replace with final result
                     conversation.UpdateLastAssistantMessage(processedResponse);
+                    
+                    // Check if response seems incomplete (auto-continue logic)
+                    bool isIncomplete = IsResponseIncomplete(response, processedResponse);
+                    
+                    if (isIncomplete)
+                    {
+                        // Auto-continue: Send continuation message
+                        statusMessage = "🔄 Response incomplete, auto-continuing...";
+                        Repaint();
+                        await System.Threading.Tasks.Task.Delay(500);
+                        
+                        // Add continuation prompt
+                        conversation.AddSystemMessage("⚡ Auto-continuing: Please complete the remaining tasks (scripts, positioning, etc.)");
+                        SaveConversation();
+                        
+                        // Recursively call with "continue" message
+                        await ContinueIncompleteTask();
+                    }
                 }
                 else
                 {
@@ -838,6 +844,160 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                 cancellationTokenSource.Cancel();
                 statusMessage = "Cancelling...";
                 Debug.Log("[AI Chat] Cancelling current request");
+            }
+        }
+        
+        private bool IsResponseIncomplete(string rawResponse, string processedResponse)
+        {
+            // Check for signs of incomplete response
+            
+            // 1. Response ends abruptly (no closing marks)
+            if (!rawResponse.TrimEnd().EndsWith("]") && 
+                !rawResponse.TrimEnd().EndsWith("!") && 
+                !rawResponse.TrimEnd().EndsWith(".") &&
+                !rawResponse.TrimEnd().EndsWith("```"))
+            {
+                Debug.Log("[AI Chat] Response seems incomplete (no proper ending)");
+                return true;
+            }
+            
+            // 2. Contains [TOOL: but no matching [/TOOL]
+            int toolOpenCount = 0;
+            int toolCloseCount = 0;
+            int index = 0;
+            while ((index = rawResponse.IndexOf("[TOOL:", index)) != -1)
+            {
+                toolOpenCount++;
+                index += 6;
+            }
+            index = 0;
+            while ((index = rawResponse.IndexOf("[/TOOL]", index)) != -1)
+            {
+                toolCloseCount++;
+                index += 7;
+            }
+            
+            if (toolOpenCount > toolCloseCount)
+            {
+                Debug.Log($"[AI Chat] Response incomplete: {toolOpenCount} [TOOL: but only {toolCloseCount} [/TOOL]");
+                return true;
+            }
+            
+            // 3. Response mentions "I'll create" but has < 3 tools
+            if ((rawResponse.Contains("I'll create") || rawResponse.Contains("I will create")) && toolOpenCount < 3)
+            {
+                Debug.Log($"[AI Chat] Response promises creation but only has {toolOpenCount} tools");
+                return true;
+            }
+            
+            // 4. Mentions script creation but no create_and_attach_script call
+            if ((rawResponse.ToLower().Contains("script") && rawResponse.ToLower().Contains("controller")) &&
+                !rawResponse.Contains("create_and_attach_script"))
+            {
+                Debug.Log("[AI Chat] Response mentions script creation but missing create_and_attach_script tool");
+                return true;
+            }
+            
+            return false;
+        }
+        
+        private int continueTurnCount = 0;
+        private const int maxContinueTurns = 2; // Max 2 auto-continue attempts
+        
+        private async System.Threading.Tasks.Task ContinueIncompleteTask()
+        {
+            continueTurnCount++;
+            
+            if (continueTurnCount > maxContinueTurns)
+            {
+                Debug.Log($"[AI Chat] Max continue turns reached ({maxContinueTurns})");
+                conversation.AddSystemMessage($"⚠️ Task partially completed. Max auto-continue attempts ({maxContinueTurns}) reached.");
+                SaveConversation();
+                continueTurnCount = 0; // Reset for next task
+                return;
+            }
+            
+            Debug.Log($"[AI Chat] Auto-continue turn {continueTurnCount}/{maxContinueTurns}");
+            
+            // Build continuation prompt
+            string contextPrompt = conversation.GetContextString();
+            string toolsInfo = agentTools.GetToolsDescription();
+            
+            string continuationPrompt = @"⚡ CONTINUATION REQUIRED - Complete the remaining tasks!
+
+You started a task but didn't finish. Review what you've done and COMPLETE the remaining steps.
+
+🎯 CRITICAL REMINDERS:
+1. If you planned to create scripts - DO IT NOW with create_and_attach_script
+2. If positioning is needed - DO IT NOW with set_position
+3. If materials/lights/cameras are needed - CREATE THEM NOW
+4. Use 3-8 tools to finish completely!
+
+Example completion:
+[TOOL:create_and_attach_script(gameobject_name=""Player"", script_name=""FirstPersonController"", script_content=""<FULL C# CODE>"")]
+[TOOL:set_position(gameobject_name=""Player"", x=0, y=1, z=0)]
+[TOOL:create_light(...)]
+[TOOL:save_scene()]
+
+NOW - EXECUTE THE REMAINING TOOLS!";
+            
+            string fullPrompt = $"{contextPrompt}\n\n{toolsInfo}\n\n{continuationPrompt}\n\nAssistant:";
+            
+            var parameters = new ModelParameters
+            {
+                temperature = 0.7f,
+                maxTokens = 6144
+            };
+            
+            try
+            {
+                string response = await currentProvider.GenerateAsync(fullPrompt, parameters);
+                
+                if (string.IsNullOrWhiteSpace(response))
+                {
+                    Debug.LogWarning("[AI Chat] Continue response was empty");
+                    continueTurnCount = 0;
+                    return;
+                }
+                
+                // Process continuation response with live updates
+                conversation.AddAssistantMessage($"🔄 Continuing (turn {continueTurnCount})...\n");
+                Repaint();
+                
+                string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
+                {
+                    conversation.UpdateLastAssistantMessage(progress);
+                    Repaint();
+                    autoScroll = true;
+                });
+                
+                conversation.UpdateLastAssistantMessage(processedResponse);
+                SaveConversation();
+                
+                // Check again if still incomplete (recursive)
+                bool stillIncomplete = IsResponseIncomplete(response, processedResponse);
+                if (stillIncomplete && continueTurnCount < maxContinueTurns)
+                {
+                    await System.Threading.Tasks.Task.Delay(500);
+                    await ContinueIncompleteTask();
+                }
+                else
+                {
+                    // Done!
+                    continueTurnCount = 0;
+                    if (!stillIncomplete)
+                    {
+                        conversation.AddSystemMessage("✅ Task completed successfully!");
+                        SaveConversation();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[AI Chat] Continue error: {ex.Message}");
+                conversation.AddSystemMessage($"❌ Auto-continue failed: {ex.Message}");
+                SaveConversation();
+                continueTurnCount = 0;
             }
         }
         
