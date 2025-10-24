@@ -108,6 +108,9 @@ namespace AICodeActions.UI
                 cancellationTokenSource.Dispose();
                 cancellationTokenSource = null;
             }
+            
+            // Save conversation history
+            SaveConversation();
         }
         
         /// <summary>
@@ -1280,20 +1283,6 @@ NOW - EXECUTE THE REMAINING TOOLS CORRECTLY!";
             conversation.AddSystemMessage($"✅ Settings updated! Provider: {currentProvider?.Name}, Model: {(selectedProviderIndex == 3 ? openRouterModel : model)}");
             statusMessage = "Settings applied";
             Repaint();
-        }
-        
-        private void OnDisable()
-        {
-            // Cancel any ongoing requests
-            if (cancellationTokenSource != null)
-            {
-                cancellationTokenSource.Cancel();
-                cancellationTokenSource.Dispose();
-                cancellationTokenSource = null;
-            }
-            
-            // Save conversation history
-            SaveConversation();
         }
         
         private void SaveConversation()
