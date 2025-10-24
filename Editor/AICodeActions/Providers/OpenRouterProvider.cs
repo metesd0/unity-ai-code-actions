@@ -310,6 +310,14 @@ namespace AICodeActions.Providers
                             if (string.IsNullOrWhiteSpace(line))
                                 continue;
 
+                            // Handle SSE comments (OpenRouter timeout prevention)
+                            // Example: ": OPENROUTER PROCESSING"
+                            if (line.StartsWith(":"))
+                            {
+                                Debug.Log($"[OpenRouter] SSE comment: {line}");
+                                continue; // Safely ignore per SSE spec
+                            }
+
                             // OpenRouter uses same SSE format as OpenAI: "data: {...}"
                             if (line.StartsWith("data: "))
                             {
@@ -331,6 +339,29 @@ namespace AICodeActions.Providers
                                 // Parse JSON chunk
                                 try
                                 {
+                                    // Check for mid-stream error (after tokens already sent)
+                                    if (jsonData.Contains("\"error\""))
+                                    {
+                                        // Try to extract error message
+                                        int errorMsgStart = jsonData.IndexOf("\"message\":\"");
+                                        if (errorMsgStart != -1)
+                                        {
+                                            errorMsgStart += 11;
+                                            int errorMsgEnd = jsonData.IndexOf("\"", errorMsgStart);
+                                            string errorMsg = jsonData.Substring(errorMsgStart, errorMsgEnd - errorMsgStart);
+                                            
+                                            Debug.LogError($"[OpenRouter] Mid-stream error: {errorMsg}");
+                                            onChunk?.Invoke(new StreamChunk
+                                            {
+                                                Type = StreamChunkType.Error,
+                                                Delta = $"Error: {errorMsg}",
+                                                IsFinal = true,
+                                                Index = chunkIndex++
+                                            });
+                                            break;
+                                        }
+                                    }
+
                                     string content = ExtractStreamContent(jsonData);
 
                                     if (!string.IsNullOrEmpty(content))
@@ -339,6 +370,19 @@ namespace AICodeActions.Providers
                                         {
                                             Index = chunkIndex++
                                         });
+                                    }
+                                    
+                                    // Check for error finish_reason
+                                    if (jsonData.Contains("\"finish_reason\":\"error\""))
+                                    {
+                                        Debug.LogWarning("[OpenRouter] Stream terminated with error finish_reason");
+                                        onChunk?.Invoke(new StreamChunk
+                                        {
+                                            Type = StreamChunkType.Done,
+                                            IsFinal = true,
+                                            Index = chunkIndex++
+                                        });
+                                        break;
                                     }
                                 }
                                 catch (Exception ex)
