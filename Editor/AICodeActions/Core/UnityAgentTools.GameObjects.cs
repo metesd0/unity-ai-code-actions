@@ -132,9 +132,46 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
-        /// Create an empty GameObject
+        /// Create an empty GameObject with optional parent
         /// </summary>
-        public static string CreateGameObject(string name, float x = 0, float y = 0, float z = 0)
+        public static string CreateGameObject(string name, string parent = null)
+        {
+            try
+            {
+                var go = new GameObject(name);
+                
+                // Set parent if specified
+                if (!string.IsNullOrEmpty(parent))
+                {
+                    var parentObj = GameObject.Find(parent);
+                    if (parentObj != null)
+                    {
+                        go.transform.SetParent(parentObj.transform);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[CreateGameObject] Parent '{parent}' not found, creating at root");
+                    }
+                }
+                
+                Undo.RegisterCreatedObjectUndo(go, "Create GameObject");
+                Selection.activeGameObject = go;
+                EditorGUIUtility.PingObject(go);
+                
+                Debug.Log($"[CreateGameObject] Created '{name}'" + (parent != null ? $" under '{parent}'" : ""));
+                
+                return $"✅ Created GameObject '{name}'" + (parent != null ? $" under '{parent}'" : "");
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error creating GameObject: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Create an empty GameObject at a specific position
+        /// </summary>
+        public static string CreateGameObject(string name, float x, float y, float z)
         {
             try
             {
