@@ -80,6 +80,36 @@ namespace AICodeActions.Core
                 new string[] { "gameobject_name" },
                 (p) => UnityAgentTools.DeleteGameObject(p["gameobject_name"]));
             
+            RegisterTool("set_parent",
+                "Set the parent of a GameObject (hierarchy organization). Use 'null' or empty string to move to root.",
+                new string[] { "child_name", "parent_name" },
+                (p) => UnityAgentTools.SetParent(p["child_name"], p.ContainsKey("parent_name") ? p["parent_name"] : null));
+            
+            RegisterTool("set_active",
+                "Enable or disable a GameObject (active/inactive state)",
+                new string[] { "gameobject_name", "active" },
+                (p) => UnityAgentTools.SetActive(p["gameobject_name"], p["active"].ToLower() == "true"));
+            
+            RegisterTool("rename_gameobject",
+                "Rename a GameObject",
+                new string[] { "old_name", "new_name" },
+                (p) => UnityAgentTools.RenameGameObject(p["old_name"], p["new_name"]));
+            
+            RegisterTool("duplicate_gameobject",
+                "Duplicate a GameObject with all its components and children",
+                new string[] { "name", "new_name" },
+                (p) => UnityAgentTools.DuplicateGameObject(p["name"], p.ContainsKey("new_name") ? p["new_name"] : null));
+            
+            RegisterTool("set_tag",
+                "Set the tag of a GameObject (e.g., 'Player', 'Enemy', 'Untagged')",
+                new string[] { "gameobject_name", "tag" },
+                (p) => UnityAgentTools.SetTag(p["gameobject_name"], p["tag"]));
+            
+            RegisterTool("set_layer",
+                "Set the layer of a GameObject (e.g., 'Default', 'UI', 'Water')",
+                new string[] { "gameobject_name", "layer_name" },
+                (p) => UnityAgentTools.SetLayer(p["gameobject_name"], p["layer_name"]));
+            
             RegisterTool("add_component",
                 "Add a built-in Unity component to a GameObject (e.g., Rigidbody, CharacterController, BoxCollider, AudioSource, Light).",
                 new string[] { "gameobject_name", "component_type" },
@@ -115,6 +145,44 @@ namespace AICodeActions.Core
                 "Get detailed information about a GameObject including all components and their scripts",
                 new string[] { "gameobject_name" },
                 (p) => UnityAgentTools.GetGameObjectInfo(p["gameobject_name"]));
+            
+            // Material & Visual
+            RegisterTool("create_material",
+                "Create a new material asset with optional color (Standard shader)",
+                new string[] { "name", "color" },
+                (p) => UnityAgentTools.CreateMaterial(p["name"], p.ContainsKey("color") ? p["color"] : null));
+            
+            RegisterTool("assign_material",
+                "Assign a material to a GameObject's renderer",
+                new string[] { "gameobject_name", "material_name" },
+                (p) => UnityAgentTools.AssignMaterial(p["gameobject_name"], p["material_name"]));
+            
+            RegisterTool("create_light",
+                "Create a light GameObject (types: directional, point, spot, area)",
+                new string[] { "name", "light_type", "color", "intensity" },
+                (p) => UnityAgentTools.CreateLight(
+                    p["name"],
+                    p["light_type"],
+                    p.ContainsKey("color") ? p["color"] : "white",
+                    p.ContainsKey("intensity") ? float.Parse(p["intensity"]) : 1.0f));
+            
+            RegisterTool("create_camera",
+                "Create a camera GameObject with optional field of view",
+                new string[] { "name", "field_of_view" },
+                (p) => UnityAgentTools.CreateCamera(
+                    p["name"],
+                    p.ContainsKey("field_of_view") ? float.Parse(p["field_of_view"]) : 60f));
+            
+            // Scene Management
+            RegisterTool("save_scene",
+                "Save the current scene to its existing path",
+                new string[] { },
+                (p) => UnityAgentTools.SaveScene());
+            
+            RegisterTool("save_scene_as",
+                "Save the current scene with a new name/path in Assets folder",
+                new string[] { "scene_name" },
+                (p) => UnityAgentTools.SaveSceneAs(p["scene_name"]));
             
             // Project inspection
             RegisterTool("list_scripts",
