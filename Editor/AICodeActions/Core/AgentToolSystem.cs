@@ -14,6 +14,13 @@ namespace AICodeActions.Core
         
         private Dictionary<string, ToolInfo> availableTools = new Dictionary<string, ToolInfo>();
         
+        // Context tracking for better AI understanding
+        public string LastCreatedScript { get; private set; } = "";
+        public string LastCreatedGameObject { get; private set; } = "";
+        public string LastModifiedGameObject { get; private set; } = "";
+        public List<string> RecentScripts { get; private set; } = new List<string>();
+        public List<string> RecentGameObjects { get; private set; } = new List<string>();
+        
         public AgentToolSystem()
         {
             RegisterDefaultTools();
@@ -268,6 +275,108 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
+        /// Update context based on tool execution
+        /// </summary>
+        private void UpdateContext(string toolName, Dictionary<string, string> parameters, string result)
+        {
+            try
+            {
+                // Track created scripts
+                if (toolName == "create_and_attach_script" && result.Contains("✅"))
+                {
+                    if (parameters.ContainsKey("script_name") || parameters.ContainsKey("scriptName"))
+                    {
+                        string scriptName = parameters.ContainsKey("script_name") 
+                            ? parameters["script_name"] 
+                            : parameters["scriptName"];
+                        
+                        LastCreatedScript = scriptName;
+                        if (!RecentScripts.Contains(scriptName))
+                        {
+                            RecentScripts.Add(scriptName);
+                            if (RecentScripts.Count > 10) RecentScripts.RemoveAt(0); // Keep last 10
+                        }
+                        Debug.Log($"[Context] Last created script: {scriptName}");
+                    }
+                }
+                
+                // Track created GameObjects
+                if ((toolName == "create_gameobject" || toolName == "create_primitive") && result.Contains("✅"))
+                {
+                    string goName = parameters.ContainsKey("name") ? parameters["name"] : null;
+                    if (goName == null && toolName == "create_primitive")
+                    {
+                        goName = parameters.ContainsKey("primitive_type") ? parameters["primitive_type"] : null;
+                    }
+                    
+                    if (!string.IsNullOrEmpty(goName))
+                    {
+                        LastCreatedGameObject = goName;
+                        if (!RecentGameObjects.Contains(goName))
+                        {
+                            RecentGameObjects.Add(goName);
+                            if (RecentGameObjects.Count > 20) RecentGameObjects.RemoveAt(0); // Keep last 20
+                        }
+                        Debug.Log($"[Context] Last created GameObject: {goName}");
+                    }
+                }
+                
+                // Track modified GameObjects
+                if ((toolName == "set_position" || toolName == "set_rotation" || toolName == "set_scale" || 
+                     toolName == "add_component" || toolName == "attach_script") && result.Contains("✅"))
+                {
+                    string goName = parameters.ContainsKey("gameobject_name") ? parameters["gameobject_name"] 
+                        : parameters.ContainsKey("gameObjectName") ? parameters["gameObjectName"] : null;
+                    
+                    if (!string.IsNullOrEmpty(goName))
+                    {
+                        LastModifiedGameObject = goName;
+                        Debug.Log($"[Context] Last modified GameObject: {goName}");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Context] Error updating context: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Get context summary for AI
+        /// </summary>
+        public string GetContextSummary()
+        {
+            var summary = new StringBuilder();
+            
+            if (!string.IsNullOrEmpty(LastCreatedScript))
+            {
+                summary.AppendLine($"📝 Last created script: {LastCreatedScript}");
+            }
+            
+            if (!string.IsNullOrEmpty(LastCreatedGameObject))
+            {
+                summary.AppendLine($"🎮 Last created GameObject: {LastCreatedGameObject}");
+            }
+            
+            if (!string.IsNullOrEmpty(LastModifiedGameObject))
+            {
+                summary.AppendLine($"🔧 Last modified GameObject: {LastModifiedGameObject}");
+            }
+            
+            if (RecentScripts.Count > 0)
+            {
+                summary.AppendLine($"📚 Recent scripts: {string.Join(", ", RecentScripts)}");
+            }
+            
+            if (RecentGameObjects.Count > 0)
+            {
+                summary.AppendLine($"🎯 Recent GameObjects: {string.Join(", ", RecentGameObjects)}");
+            }
+            
+            return summary.ToString();
+        }
+        
+        /// <summary>
         /// Parse and execute tool calls from AI response
         /// </summary>
         public string ProcessToolCalls(string response)
@@ -329,6 +438,10 @@ namespace AICodeActions.Core
                 string toolResult = ExecuteTool(toolName, parameters);
                 result.AppendLine(toolResult);
                 result.AppendLine();
+                
+                // Track context from tool execution
+                UpdateContext(toolName, parameters, toolResult);
+                
                 result.AppendLine("---");
                 result.AppendLine();
                 
