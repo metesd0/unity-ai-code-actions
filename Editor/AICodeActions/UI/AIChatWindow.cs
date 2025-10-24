@@ -43,6 +43,9 @@ namespace AICodeActions.UI
         private bool autoScroll = true;
         private float lastScrollY = 0f;
         
+        // Cancellation support
+        private System.Threading.CancellationTokenSource cancellationTokenSource;
+        
         private GUIStyle userMessageStyle;
         private GUIStyle assistantMessageStyle;
         private GUIStyle systemMessageStyle;
@@ -227,7 +230,19 @@ namespace AICodeActions.UI
                     conversation.Clear();
                     conversation.AddSystemMessage("Conversation cleared. How can I help you?");
                     SaveConversation(); // Save immediately after clearing
+                    autoScroll = true;
                 }
+            }
+            
+            // Cancel button (only show when processing)
+            if (isProcessing)
+            {
+                GUI.backgroundColor = new Color(1f, 0.3f, 0.3f); // Red background
+                if (GUILayout.Button("🛑 Cancel", EditorStyles.toolbarButton, GUILayout.Width(70)))
+                {
+                    CancelCurrentRequest();
+                }
+                GUI.backgroundColor = Color.white;
             }
             
             EditorGUILayout.EndHorizontal();
@@ -577,6 +592,10 @@ namespace AICodeActions.UI
             isProcessing = true;
             statusMessage = "AI is thinking...";
             
+            // Create new cancellation token for this request
+            cancellationTokenSource?.Cancel(); // Cancel any previous request
+            cancellationTokenSource = new System.Threading.CancellationTokenSource();
+            
             // Save scroll position to prevent jumping
             float savedScrollY = chatScrollPos.y;
             
@@ -793,6 +812,12 @@ Use <thinking> tags EVERY TIME before tool execution.";
                 // Retry loop for reliability
                 while (retryCount < maxRetries)
                 {
+                    // Check if cancelled
+                    if (cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        throw new System.OperationCanceledException("Request cancelled by user");
+                    }
+                    
                     try
                     {
                         response = await currentProvider.GenerateAsync(fullPrompt, parameters);
@@ -875,6 +900,13 @@ Use <thinking> tags EVERY TIME before tool execution.";
                 autoScroll = true; // Enable auto-scroll for new messages
                 statusMessage = "Ready";
             }
+            catch (System.OperationCanceledException)
+            {
+                statusMessage = "Request cancelled";
+                conversation.AddSystemMessage("🛑 Request cancelled by user");
+                SaveConversation();
+                Debug.Log("[AI Chat] Request cancelled by user");
+            }
             catch (Exception e)
             {
                 statusMessage = $"Error: {e.Message}";
@@ -885,6 +917,7 @@ Use <thinking> tags EVERY TIME before tool execution.";
             finally
             {
                 isProcessing = false;
+                cancellationTokenSource = null;
                 
                 // Force repaint after a short delay to avoid flashing
                 EditorApplication.delayCall += () => 
@@ -892,6 +925,16 @@ Use <thinking> tags EVERY TIME before tool execution.";
                     if (this != null)
                         Repaint();
                 };
+            }
+        }
+        
+        private void CancelCurrentRequest()
+        {
+            if (cancellationTokenSource != null && !cancellationTokenSource.Token.IsCancellationRequested)
+            {
+                cancellationTokenSource.Cancel();
+                statusMessage = "Cancelling...";
+                Debug.Log("[AI Chat] Cancelling current request");
             }
         }
         
