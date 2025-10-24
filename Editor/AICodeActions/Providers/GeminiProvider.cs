@@ -1,7 +1,9 @@
 using System;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using AICodeActions.Core;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -17,6 +19,7 @@ namespace AICodeActions.Providers
         public string Name => "Gemini";
         public bool IsConfigured => !string.IsNullOrEmpty(config?.apiKey);
         public bool RequiresApiKey => true;
+        public bool SupportsStreaming => false; // TODO: Implement later
 
         public GeminiProvider(ProviderConfig config)
         {
@@ -150,6 +153,15 @@ namespace AICodeActions.Providers
             
             Debug.Log($"[Gemini] Parsed text length: {result.Length} characters");
             return result;
+        }
+
+        public Task StreamGenerateAsync(
+            string prompt,
+            ModelParameters parameters,
+            Action<StreamChunk> onChunk,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException("Gemini streaming will be implemented in Phase 2");
         }
 
         private string EscapeJson(string text)

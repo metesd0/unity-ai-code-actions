@@ -17,6 +17,7 @@ namespace AICodeActions.UI
         private ConversationManager conversation;
         private IModelProvider currentProvider;
         private AgentToolSystem agentTools;
+        private StreamManager streamManager; // NEW: Streaming support
         
         private int selectedProviderIndex = 0;
         private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)", "OpenRouter" };
@@ -74,6 +75,10 @@ namespace AICodeActions.UI
             LoadPreferencesFromMainWindow();
             agentTools = new AgentToolSystem();
             
+            // Initialize streaming manager
+            streamManager = new StreamManager();
+            EditorApplication.update += OnEditorUpdate; // Subscribe to Unity update loop
+            
             // Load conversation history
             LoadConversation();
             
@@ -88,6 +93,32 @@ namespace AICodeActions.UI
                 {
                     conversation.AddSystemMessage("Hello! I'm your Unity AI assistant. Ask me anything about Unity, C#, or request code modifications.");
                 }
+            }
+        }
+        
+        private void OnDisable()
+        {
+            // Unsubscribe from update loop
+            EditorApplication.update -= OnEditorUpdate;
+            
+            // Cancel any ongoing streams
+            if (cancellationTokenSource != null)
+            {
+                cancellationTokenSource.Cancel();
+                cancellationTokenSource.Dispose();
+                cancellationTokenSource = null;
+            }
+        }
+        
+        /// <summary>
+        /// Called every frame by Unity Editor
+        /// Updates streaming buffer
+        /// </summary>
+        private void OnEditorUpdate()
+        {
+            if (streamManager != null)
+            {
+                streamManager.Update();
             }
         }
         
