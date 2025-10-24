@@ -209,11 +209,11 @@ namespace AICodeActions.Providers
 
                 response.EnsureSuccessStatusCode();
 
+                int chunkIndex = 0; // Moved outside using block
+
                 using (var stream = await response.Content.ReadAsStreamAsync())
                 using (var reader = new StreamReader(stream))
                 {
-                    int chunkIndex = 0;
-
                     while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
                     {
                         string line = await reader.ReadLineAsync();
