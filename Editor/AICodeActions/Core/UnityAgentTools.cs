@@ -1977,10 +1977,11 @@ public class {scriptName} : ScriptableObject
                 string content = System.IO.File.ReadAllText(scriptPath);
                 
                 // Add header comment
+                string dateTime = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm");
                 string headerComment = $@"/*
  * {scriptName}
  * {comments}
- * Generated: {System.DateTime.Now.ToString(""yyyy-MM-dd HH:mm"")}
+ * Generated: {dateTime}
  */
 
 ";
