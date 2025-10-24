@@ -292,6 +292,22 @@ namespace AICodeActions.UI
             // Content with code block detection
             DrawMessageContent(message);
             
+            // Copy response button for AI messages
+            if (message.role == MessageRole.Assistant)
+            {
+                EditorGUILayout.Space(5);
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                
+                if (GUILayout.Button("📋 Copy Response", GUILayout.Height(22), GUILayout.Width(130)))
+                {
+                    GUIUtility.systemCopyBuffer = message.content;
+                    ShowNotification(new GUIContent("✅ Response copied to clipboard!"));
+                }
+                
+                EditorGUILayout.EndHorizontal();
+            }
+            
             EditorGUILayout.EndVertical();
         }
         
