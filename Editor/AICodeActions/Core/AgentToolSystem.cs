@@ -130,6 +130,67 @@ namespace AICodeActions.Core
                 new string[] { "gameobject_name", "script_name", "script_content" },
                 (p) => UnityAgentTools.CreateAndAttachScript(p["gameobject_name"], p["script_name"], p["script_content"]));
             
+            // Advanced Script Manipulation
+            RegisterTool("modify_script",
+                "Modify an existing script by appending code (for simple modifications)",
+                new string[] { "script_name", "modifications" },
+                (p) => UnityAgentTools.ModifyScript(p["script_name"], p["modifications"]));
+            
+            RegisterTool("add_method_to_script",
+                "Add a new method to an existing script (inserted before last closing brace)",
+                new string[] { "script_name", "method_code" },
+                (p) => UnityAgentTools.AddMethodToScript(p["script_name"], p["method_code"]));
+            
+            RegisterTool("add_field_to_script",
+                "Add a new field/property to an existing script (inserted after class opening brace)",
+                new string[] { "script_name", "field_code" },
+                (p) => UnityAgentTools.AddFieldToScript(p["script_name"], p["field_code"]));
+            
+            RegisterTool("delete_script",
+                "Delete a script file from the project",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.DeleteScript(p["script_name"]));
+            
+            RegisterTool("find_in_script",
+                "Search for text in a script and show all occurrences with line numbers",
+                new string[] { "script_name", "search_text" },
+                (p) => UnityAgentTools.FindInScript(p["script_name"], p["search_text"]));
+            
+            RegisterTool("replace_in_script",
+                "Find and replace all occurrences of text in a script",
+                new string[] { "script_name", "find_text", "replace_text" },
+                (p) => UnityAgentTools.ReplaceInScript(p["script_name"], p["find_text"], p["replace_text"]));
+            
+            RegisterTool("validate_script",
+                "Validate script for basic syntax errors (brace matching, class name, etc.)",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.ValidateScript(p["script_name"]));
+            
+            RegisterTool("create_from_template",
+                "Create a script from a template (singleton, statemachine, objectpool, scriptableobject)",
+                new string[] { "script_name", "template_type", "gameobject_name" },
+                (p) => UnityAgentTools.CreateFromTemplate(
+                    p["script_name"],
+                    p["template_type"],
+                    p.ContainsKey("gameobject_name") ? p["gameobject_name"] : null));
+            
+            RegisterTool("add_comments_to_script",
+                "Add header comments/documentation to a script",
+                new string[] { "script_name", "comments" },
+                (p) => UnityAgentTools.AddCommentsToScript(p["script_name"], p["comments"]));
+            
+            RegisterTool("create_multiple_scripts",
+                "Create multiple scripts at once (comma/semicolon/newline separated names)",
+                new string[] { "script_names", "base_namespace" },
+                (p) => UnityAgentTools.CreateMultipleScripts(
+                    p["script_names"],
+                    p.ContainsKey("base_namespace") ? p["base_namespace"] : null));
+            
+            RegisterTool("add_namespace_to_script",
+                "Add a namespace wrapper to an existing script",
+                new string[] { "script_name", "namespace_name" },
+                (p) => UnityAgentTools.AddNamespaceToScript(p["script_name"], p["namespace_name"]));
+            
             // File reading tools
             RegisterTool("read_script",
                 "Read the content of a C# script file by name (e.g., 'PlayerController' or 'PlayerController.cs')",
