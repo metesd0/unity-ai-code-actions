@@ -85,6 +85,11 @@ namespace AICodeActions.Core
                 new string[] { "gameobject_name", "component_type" },
                 (p) => UnityAgentTools.AddComponent(p["gameobject_name"], p["component_type"]));
             
+            RegisterTool("set_component_property",
+                "Set a property/field value on a component (e.g., set Camera reference, float values, colors). Supports: Transform/GameObject references, float, int, bool, string, Vector3, Color.",
+                new string[] { "gameobject_name", "component_type", "property_name", "value" },
+                (p) => UnityAgentTools.SetComponentProperty(p["gameobject_name"], p["component_type"], p["property_name"], p["value"]));
+            
             RegisterTool("attach_script",
                 "Attach an EXISTING compiled C# script to a GameObject. The script must already exist in the project. Use this when you want to add a script that's already created.",
                 new string[] { "gameobject_name", "script_name" },
@@ -323,7 +328,7 @@ namespace AICodeActions.Core
                 
                 // Track modified GameObjects
                 if ((toolName == "set_position" || toolName == "set_rotation" || toolName == "set_scale" || 
-                     toolName == "add_component" || toolName == "attach_script") && result.Contains("✅"))
+                     toolName == "add_component" || toolName == "attach_script" || toolName == "set_component_property") && result.Contains("✅"))
                 {
                     string goName = parameters.ContainsKey("gameobject_name") ? parameters["gameobject_name"] 
                         : parameters.ContainsKey("gameObjectName") ? parameters["gameObjectName"] : null;

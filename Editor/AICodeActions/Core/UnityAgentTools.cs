@@ -331,6 +331,147 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
+        /// Set a property value on a component
+        /// </summary>
+        public static string SetComponentProperty(string gameObjectName, string componentType, string propertyName, string value)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                // Find component
+                Component component = null;
+                var components = go.GetComponents<Component>();
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == componentType)
+                    {
+                        component = comp;
+                        break;
+                    }
+                }
+                
+                if (component == null)
+                    return $"❌ Component '{componentType}' not found on {gameObjectName}";
+                
+                // Find property using reflection
+                var type = component.GetType();
+                var field = type.GetField(propertyName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                var property = type.GetProperty(propertyName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                
+                if (field == null && property == null)
+                    return $"❌ Property '{propertyName}' not found on {componentType}";
+                
+                var fieldOrPropertyType = field != null ? field.FieldType : property.PropertyType;
+                
+                // Record undo
+                Undo.RecordObject(component, $"Set {propertyName}");
+                
+                // Convert and set value based on type
+                object convertedValue = null;
+                
+                if (fieldOrPropertyType == typeof(Transform) || fieldOrPropertyType == typeof(GameObject))
+                {
+                    // GameObject or Transform reference
+                    var targetGo = GameObject.Find(value);
+                    if (targetGo == null)
+                        return $"❌ Referenced GameObject '{value}' not found";
+                    
+                    convertedValue = fieldOrPropertyType == typeof(Transform) ? (object)targetGo.transform : (object)targetGo;
+                }
+                else if (fieldOrPropertyType == typeof(float))
+                {
+                    convertedValue = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+                }
+                else if (fieldOrPropertyType == typeof(int))
+                {
+                    convertedValue = int.Parse(value);
+                }
+                else if (fieldOrPropertyType == typeof(bool))
+                {
+                    convertedValue = bool.Parse(value);
+                }
+                else if (fieldOrPropertyType == typeof(string))
+                {
+                    convertedValue = value;
+                }
+                else if (fieldOrPropertyType == typeof(Vector3))
+                {
+                    // Parse Vector3 from format: "x,y,z" or "(x,y,z)"
+                    string cleanValue = value.Replace("(", "").Replace(")", "").Trim();
+                    var parts = cleanValue.Split(',');
+                    if (parts.Length == 3)
+                    {
+                        convertedValue = new Vector3(
+                            float.Parse(parts[0].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+                            float.Parse(parts[1].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+                            float.Parse(parts[2].Trim(), System.Globalization.CultureInfo.InvariantCulture)
+                        );
+                    }
+                    else
+                    {
+                        return $"❌ Invalid Vector3 format. Use: 'x,y,z' or '(x,y,z)'";
+                    }
+                }
+                else if (fieldOrPropertyType == typeof(Color))
+                {
+                    // Parse Color from name or hex
+                    if (value.StartsWith("#"))
+                    {
+                        ColorUtility.TryParseHtmlString(value, out Color color);
+                        convertedValue = color;
+                    }
+                    else
+                    {
+                        // Try to parse color name
+                        switch (value.ToLower())
+                        {
+                            case "red": convertedValue = Color.red; break;
+                            case "green": convertedValue = Color.green; break;
+                            case "blue": convertedValue = Color.blue; break;
+                            case "white": convertedValue = Color.white; break;
+                            case "black": convertedValue = Color.black; break;
+                            case "yellow": convertedValue = Color.yellow; break;
+                            case "cyan": convertedValue = Color.cyan; break;
+                            case "magenta": convertedValue = Color.magenta; break;
+                            case "gray": case "grey": convertedValue = Color.gray; break;
+                            default: return $"❌ Unknown color '{value}'. Use: red, green, blue, white, black, yellow, cyan, magenta, gray, or #RRGGBB";
+                        }
+                    }
+                }
+                else
+                {
+                    return $"❌ Unsupported property type: {fieldOrPropertyType.Name}. Supported: Transform, GameObject, float, int, bool, string, Vector3, Color";
+                }
+                
+                // Set the value
+                if (field != null)
+                {
+                    field.SetValue(component, convertedValue);
+                }
+                else
+                {
+                    property.SetValue(component, convertedValue);
+                }
+                
+                EditorUtility.SetDirty(component);
+                Selection.activeGameObject = go;
+                
+                Debug.Log($"[SetComponentProperty] Set {componentType}.{propertyName} = {value} on {gameObjectName}");
+                
+                return $"✅ Set {componentType}.{propertyName} = {value} on {gameObjectName}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SetComponentProperty] Error: {e}");
+                return $"❌ Error setting property: {e.Message}";
+            }
+        }
+        
+        /// <summary>
         /// Create a new GameObject in the scene
         /// </summary>
         public static string CreateGameObject(string name, string parent = null)
