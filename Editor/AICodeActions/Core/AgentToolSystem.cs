@@ -503,7 +503,12 @@ namespace AICodeActions.Core
                         potentialKey == "scriptContent" || potentialKey == "componentType" || 
                         potentialKey == "name" || potentialKey == "parent" ||
                         potentialKey == "gameobject_name" || potentialKey == "script_name" ||
-                        potentialKey == "script_content" || potentialKey == "component_type"))
+                        potentialKey == "script_content" || potentialKey == "component_type" ||
+                        potentialKey == "search_term" || potentialKey == "by_tag" ||
+                        potentialKey == "property_name" || potentialKey == "value" ||
+                        potentialKey == "x" || potentialKey == "y" || potentialKey == "z" ||
+                        potentialKey == "primitive_type" || potentialKey == "file_path" ||
+                        potentialKey == "filter" || char.IsLower(potentialKey[0])))
                     {
                         // Save previous parameter
                         parameters[currentKey] = currentValue.ToString().Trim();
