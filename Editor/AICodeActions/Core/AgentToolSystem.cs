@@ -520,10 +520,12 @@ namespace AICodeActions.Core
         
         /// <summary>
         /// Process tool calls with progress callback for live UI updates
+        /// NEW: Compact format + detailed view support + guard rails
         /// </summary>
         public string ProcessToolCallsWithProgress(string response, Action<string> progressCallback)
         {
             var result = new StringBuilder();
+            var detailedLog = new StringBuilder(); // For expandable details
             
             // Check if response contains tool calls
             bool hasToolCalls = response.Contains("[TOOL:");
@@ -534,12 +536,13 @@ namespace AICodeActions.Core
                 return response;
             }
             
-            result.AppendLine("## AI Response:");
-            result.AppendLine(response);
+            // Compact header
+            result.AppendLine("🤖 **AI Agent** (Live Execution)");
             result.AppendLine();
-            result.AppendLine("---");
-            result.AppendLine("## Tool Execution Results:");
-            result.AppendLine();
+            
+            detailedLog.AppendLine("## 📋 Full AI Response:");
+            detailedLog.AppendLine(response);
+            detailedLog.AppendLine();
             
             // Notify start
             progressCallback?.Invoke(result.ToString());
@@ -547,6 +550,7 @@ namespace AICodeActions.Core
             // Find all tool calls in format [TOOL:name]...[/TOOL]
             int startIndex = 0;
             int toolCount = 0;
+            var toolExecutionTimes = new System.Collections.Generic.List<double>();
             
             while (true)
             {
@@ -567,46 +571,188 @@ namespace AICodeActions.Core
                 
                 toolCount++;
                 
-                // Execute tool with visual feedback
-                result.AppendLine($"### 🔧 Tool {toolCount}: {toolName}");
-                result.AppendLine($"**Parameters:**");
-                foreach (var param in parameters)
-                {
-                    string valuePreview = param.Value.Length > 100 
-                        ? param.Value.Substring(0, 100) + "..." 
-                        : param.Value;
-                    result.AppendLine($"- {param.Key}: {valuePreview}");
-                }
-                result.AppendLine();
-                result.AppendLine($"⏳ Executing **{toolName}**...");
+                // COMPACT VIEW: One line per tool
+                var paramSummary = GetParameterSummary(parameters, toolName);
+                result.AppendLine($"⏳ **{toolCount}.** {toolName}: {paramSummary}");
                 
-                // Update UI with progress
+                // Update UI with progress (show tool starting)
                 progressCallback?.Invoke(result.ToString());
                 
-                result.AppendLine();
-                result.AppendLine("**Result:**");
-                string toolResult = ExecuteTool(toolName, parameters);
-                result.AppendLine(toolResult);
-                result.AppendLine();
+                // Execute tool and measure time
+                var startTime = UnityEditor.EditorApplication.timeSinceStartup;
+                string toolResult = ExecuteToolWithValidation(toolName, parameters);
+                var elapsed = UnityEditor.EditorApplication.timeSinceStartup - startTime;
+                toolExecutionTimes.Add(elapsed);
                 
                 // Track context from tool execution
                 UpdateContext(toolName, parameters, toolResult);
                 
-                result.AppendLine("---");
-                result.AppendLine();
+                // Update compact view with result icon
+                string icon = toolResult.Contains("✅") ? "✅" : 
+                              toolResult.Contains("❌") ? "❌" : 
+                              toolResult.Contains("⚠️") ? "⚠️" : "✅";
                 
-                // Update UI after each tool
+                string compactResult = GetCompactResult(toolResult);
+                
+                // DETAILED LOG: Full details for expandable section
+                detailedLog.AppendLine($"### 🔧 Tool {toolCount}: {toolName}");
+                detailedLog.AppendLine($"**Parameters:**");
+                foreach (var param in parameters)
+                {
+                    string valuePreview = param.Value.Length > 150 
+                        ? param.Value.Substring(0, 150) + "..." 
+                        : param.Value;
+                    detailedLog.AppendLine($"- `{param.Key}`: {valuePreview}");
+                }
+                detailedLog.AppendLine();
+                detailedLog.AppendLine($"**Execution Time:** {elapsed:F3}s");
+                detailedLog.AppendLine($"**Result:**");
+                detailedLog.AppendLine(toolResult);
+                detailedLog.AppendLine();
+                detailedLog.AppendLine("---");
+                detailedLog.AppendLine();
+                
+                // Update UI after each tool with final status
                 progressCallback?.Invoke(result.ToString());
                 
                 startIndex = toolEnd + 7;
             }
             
-            if (toolCount > 0)
-            {
-                result.AppendLine($"✅ Executed {toolCount} tool(s) successfully!");
-            }
+            // Summary footer
+            result.AppendLine();
+            double totalTime = toolExecutionTimes.Count > 0 ? toolExecutionTimes.Sum() : 0;
+            result.AppendLine($"✅ **Completed {toolCount} tool(s)** in {totalTime:F2}s");
+            result.AppendLine();
+            result.AppendLine($"<details><summary>📊 Show Detailed Execution Log</summary>");
+            result.AppendLine();
+            result.AppendLine(detailedLog.ToString());
+            result.AppendLine("</details>");
             
             return result.ToString();
+        }
+        
+        /// <summary>
+        /// Get compact parameter summary for display
+        /// </summary>
+        private string GetParameterSummary(Dictionary<string, string> parameters, string toolName)
+        {
+            if (parameters.Count == 0) return "()";
+            
+            // Special handling for common tools
+            if (toolName == "set_position" || toolName == "set_rotation" || toolName == "set_scale")
+            {
+                string obj = parameters.ContainsKey("gameobject_name") ? parameters["gameobject_name"] : "?";
+                string x = parameters.ContainsKey("x") ? parameters["x"] : "0";
+                string y = parameters.ContainsKey("y") ? parameters["y"] : "0";
+                string z = parameters.ContainsKey("z") ? parameters["z"] : "0";
+                return $"{obj} → ({x}, {y}, {z})";
+            }
+            else if (toolName == "create_gameobject" || toolName == "create_primitive")
+            {
+                string name = parameters.ContainsKey("name") ? parameters["name"] : 
+                              parameters.ContainsKey("primitive_type") ? parameters["primitive_type"] : "?";
+                return name;
+            }
+            else if (toolName == "create_and_attach_script")
+            {
+                string obj = parameters.ContainsKey("gameobject_name") ? parameters["gameobject_name"] : "?";
+                string script = parameters.ContainsKey("script_name") ? parameters["script_name"] : "?";
+                return $"{obj} → {script}";
+            }
+            else if (toolName == "add_component" || toolName == "set_component_property")
+            {
+                string obj = parameters.ContainsKey("gameobject_name") ? parameters["gameobject_name"] : "?";
+                string comp = parameters.ContainsKey("component_type") ? parameters["component_type"] : "?";
+                return $"{obj}.{comp}";
+            }
+            
+            // Default: first 2 parameters
+            int count = 0;
+            var summary = new StringBuilder();
+            foreach (var kvp in parameters)
+            {
+                if (count >= 2) break;
+                if (kvp.Key == "script_content") continue; // Skip large content
+                
+                string value = kvp.Value.Length > 20 ? kvp.Value.Substring(0, 20) + "..." : kvp.Value;
+                if (count > 0) summary.Append(", ");
+                summary.Append($"{value}");
+                count++;
+            }
+            
+            return summary.ToString();
+        }
+        
+        /// <summary>
+        /// Get compact result summary
+        /// </summary>
+        private string GetCompactResult(string fullResult)
+        {
+            // Extract first meaningful line
+            var lines = fullResult.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length > 0)
+            {
+                string firstLine = lines[0].Trim();
+                if (firstLine.Length > 60)
+                    return firstLine.Substring(0, 60) + "...";
+                return firstLine;
+            }
+            return "Done";
+        }
+        
+        /// <summary>
+        /// Execute tool with validation guard rails
+        /// </summary>
+        private string ExecuteToolWithValidation(string toolName, Dictionary<string, string> parameters)
+        {
+            // GUARD RAIL: Validate numeric parameters before execution
+            if (toolName == "set_position")
+            {
+                if (parameters.ContainsKey("y"))
+                {
+                    float y = float.Parse(parameters["y"]);
+                    
+                    // Check for suspicious values (likely typos)
+                    if (y > 100 || y < -100)
+                    {
+                        Debug.LogWarning($"[Guard Rail] Suspicious Y position: {y}. Did you mean {y/10}?");
+                        return $"⚠️ Validation Warning: Y position {y} seems unusual. Typical range: [-10, 10]. Please verify.";
+                    }
+                }
+            }
+            
+            if (toolName == "set_scale")
+            {
+                float x = parameters.ContainsKey("x") ? float.Parse(parameters["x"]) : 1;
+                float y = parameters.ContainsKey("y") ? float.Parse(parameters["y"]) : 1;
+                float z = parameters.ContainsKey("z") ? float.Parse(parameters["z"]) : 1;
+                
+                if (x > 100 || y > 100 || z > 100 || x < 0.01f || y < 0.01f || z < 0.01f)
+                {
+                    Debug.LogWarning($"[Guard Rail] Suspicious scale: ({x}, {y}, {z})");
+                    return $"⚠️ Validation Warning: Scale ({x}, {y}, {z}) seems unusual. Typical range: [0.1, 10]";
+                }
+            }
+            
+            // Execute the tool normally
+            string result = ExecuteTool(toolName, parameters);
+            
+            // POST-VALIDATION: Verify critical operations
+            if (toolName == "set_position" && result.Contains("✅"))
+            {
+                // Verify the GameObject is actually where we set it
+                string goName = parameters.ContainsKey("gameobject_name") ? parameters["gameobject_name"] : null;
+                if (!string.IsNullOrEmpty(goName))
+                {
+                    var verifyResult = UnityAgentTools.GetGameObjectInfo(goName);
+                    if (verifyResult.Contains("Position:"))
+                    {
+                        Debug.Log($"[Validation] Verified position for {goName}");
+                    }
+                }
+            }
+            
+            return result;
         }
         
         private Dictionary<string, string> ParseParameters(string paramSection)

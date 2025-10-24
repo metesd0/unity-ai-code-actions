@@ -26,6 +26,11 @@ namespace AICodeActions.UI
         
         private bool agentMode = true; // Enable agent capabilities by default
         
+        // Detail level control (NEW: solution.md requirement)
+        private enum DetailLevel { Compact, Normal, Detailed }
+        private DetailLevel currentDetailLevel = DetailLevel.Compact;
+        private bool showOnlyErrors = false;
+        
         // Context tracking for better AI understanding
         private string lastCreatedScript = "";
         private string lastCreatedGameObject = "";
@@ -194,6 +199,7 @@ namespace AICodeActions.UI
         
         private void DrawToolbar()
         {
+            // Main toolbar
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             
             GUILayout.Label(agentMode ? "🤖 AI Agent" : "💬 AI Chat", EditorStyles.boldLabel);
@@ -239,6 +245,59 @@ namespace AICodeActions.UI
             }
             
             EditorGUILayout.EndHorizontal();
+            
+            // NEW: Detail Level Control Bar (solution.md requirement)
+            if (agentMode)
+            {
+                EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+                
+                GUILayout.Label("📊 View:", EditorStyles.miniLabel, GUILayout.Width(40));
+                
+                // Detail level buttons
+                GUI.backgroundColor = currentDetailLevel == DetailLevel.Compact ? new Color(0.3f, 0.7f, 1f) : Color.white;
+                if (GUILayout.Button("Compact", EditorStyles.toolbarButton, GUILayout.Width(65)))
+                {
+                    currentDetailLevel = DetailLevel.Compact;
+                }
+                
+                GUI.backgroundColor = currentDetailLevel == DetailLevel.Normal ? new Color(0.3f, 0.7f, 1f) : Color.white;
+                if (GUILayout.Button("Normal", EditorStyles.toolbarButton, GUILayout.Width(60)))
+                {
+                    currentDetailLevel = DetailLevel.Normal;
+                }
+                
+                GUI.backgroundColor = currentDetailLevel == DetailLevel.Detailed ? new Color(0.3f, 0.7f, 1f) : Color.white;
+                if (GUILayout.Button("Detailed", EditorStyles.toolbarButton, GUILayout.Width(65)))
+                {
+                    currentDetailLevel = DetailLevel.Detailed;
+                }
+                GUI.backgroundColor = Color.white;
+                
+                GUILayout.Space(10);
+                
+                // Filter toggle
+                GUI.backgroundColor = showOnlyErrors ? new Color(1f, 0.5f, 0.3f) : Color.white;
+                bool newShowOnlyErrors = GUILayout.Toggle(showOnlyErrors, "❌ Errors Only", EditorStyles.toolbarButton, GUILayout.Width(90));
+                if (newShowOnlyErrors != showOnlyErrors)
+                {
+                    showOnlyErrors = newShowOnlyErrors;
+                    Repaint();
+                }
+                GUI.backgroundColor = Color.white;
+                
+                GUILayout.FlexibleSpace();
+                
+                // Stats
+                int toolCount = conversation.Messages.Count > 0 
+                    ? conversation.Messages[conversation.Messages.Count - 1].content.Split(new[] { "[TOOL:" }, System.StringSplitOptions.None).Length - 1 
+                    : 0;
+                if (toolCount > 0)
+                {
+                    GUILayout.Label($"🔧 {toolCount} tools", EditorStyles.miniLabel);
+                }
+                
+                EditorGUILayout.EndHorizontal();
+            }
         }
         
         private void DrawChatArea()
@@ -849,7 +908,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
         
         private bool IsResponseIncomplete(string rawResponse, string processedResponse)
         {
-            // Check for signs of incomplete response
+            // STRENGTHENED AUTO-CONTINUE DETECTION (solution.md requirements)
             
             // 1. Response ends abruptly (no closing marks)
             if (!rawResponse.TrimEnd().EndsWith("]") && 
@@ -857,7 +916,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                 !rawResponse.TrimEnd().EndsWith(".") &&
                 !rawResponse.TrimEnd().EndsWith("```"))
             {
-                Debug.Log("[AI Chat] Response seems incomplete (no proper ending)");
+                Debug.Log("[Auto-Continue] Response seems incomplete (no proper ending)");
                 return true;
             }
             
@@ -879,22 +938,60 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
             
             if (toolOpenCount > toolCloseCount)
             {
-                Debug.Log($"[AI Chat] Response incomplete: {toolOpenCount} [TOOL: but only {toolCloseCount} [/TOOL]");
+                Debug.Log($"[Auto-Continue] Incomplete: {toolOpenCount} [TOOL: but only {toolCloseCount} [/TOOL]");
                 return true;
             }
             
             // 3. Response mentions "I'll create" but has < 3 tools
-            if ((rawResponse.Contains("I'll create") || rawResponse.Contains("I will create")) && toolOpenCount < 3)
+            if ((rawResponse.Contains("I'll create") || rawResponse.Contains("I will create") || 
+                 rawResponse.Contains("I'll add") || rawResponse.Contains("I will add")) && toolOpenCount < 3)
             {
-                Debug.Log($"[AI Chat] Response promises creation but only has {toolOpenCount} tools");
+                Debug.Log($"[Auto-Continue] Promises creation but only {toolOpenCount} tools");
                 return true;
             }
             
             // 4. Mentions script creation but no create_and_attach_script call
-            if ((rawResponse.ToLower().Contains("script") && rawResponse.ToLower().Contains("controller")) &&
+            if ((rawResponse.ToLower().Contains("script") && 
+                (rawResponse.ToLower().Contains("controller") || rawResponse.ToLower().Contains("movement"))) &&
                 !rawResponse.Contains("create_and_attach_script"))
             {
-                Debug.Log("[AI Chat] Response mentions script creation but missing create_and_attach_script tool");
+                Debug.Log("[Auto-Continue] Mentions script creation but missing create_and_attach_script tool");
+                return true;
+            }
+            
+            // 5. NEW: Plan says "create" but < 3 tools executed
+            if (rawResponse.ToLower().Contains("plan:") && toolOpenCount < 3)
+            {
+                Debug.Log($"[Auto-Continue] Has plan but only {toolOpenCount} tools");
+                return true;
+            }
+            
+            // 6. NEW: Created GameObject but no save_scene
+            if ((rawResponse.Contains("create_gameobject") || rawResponse.Contains("create_primitive")) &&
+                !rawResponse.Contains("save_scene"))
+            {
+                Debug.Log("[Auto-Continue] Created objects but missing save_scene");
+                return true;
+            }
+            
+            // 7. NEW: Added components/scripts but no positioning
+            if (rawResponse.Contains("create_and_attach_script") && !rawResponse.Contains("set_position"))
+            {
+                Debug.Log("[Auto-Continue] Created script but no positioning");
+                return true;
+            }
+            
+            // 8. NEW: Check processed response for errors that need correction
+            if (processedResponse.Contains("❌") || processedResponse.Contains("⚠️"))
+            {
+                Debug.Log("[Auto-Continue] Tool execution had errors/warnings - needs correction");
+                return true;
+            }
+            
+            // 9. NEW: Response has fewer than 2 tools (likely incomplete)
+            if (toolOpenCount > 0 && toolOpenCount < 2)
+            {
+                Debug.Log($"[Auto-Continue] Only {toolOpenCount} tool(s) - seems incomplete");
                 return true;
             }
             
@@ -923,23 +1020,70 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
             string contextPrompt = conversation.GetContextString();
             string toolsInfo = agentTools.GetToolsDescription();
             
+            // SELF-CORRECTION: Check what failed/incomplete
+            string lastMessage = conversation.Messages.Count > 0 
+                ? conversation.Messages[conversation.Messages.Count - 1].content 
+                : "";
+            
+            bool hasErrors = lastMessage.Contains("❌");
+            bool hasWarnings = lastMessage.Contains("⚠️");
+            
             string continuationPrompt = @"⚡ CONTINUATION REQUIRED - Complete the remaining tasks!
 
-You started a task but didn't finish. Review what you've done and COMPLETE the remaining steps.
+You started a task but didn't finish. Review what you've done and COMPLETE the remaining steps.";
+            
+            if (hasErrors || hasWarnings)
+            {
+                continuationPrompt += @"
+
+🚨 CRITICAL: Your previous attempt had ERRORS/WARNINGS! 
+- Review the last response carefully
+- FIX any failed operations
+- VERIFY the results with get_gameobject_info before proceeding
+- If something failed, try a different approach";
+            }
+            
+            continuationPrompt += @"
 
 🎯 CRITICAL REMINDERS:
 1. If you planned to create scripts - DO IT NOW with create_and_attach_script
-2. If positioning is needed - DO IT NOW with set_position
+2. If positioning is needed - DO IT NOW with set_position (y should be 0.5-3.0 for cameras)
 3. If materials/lights/cameras are needed - CREATE THEM NOW
-4. Use 3-8 tools to finish completely!
+4. If you created GameObjects/Scripts - SAVE THE SCENE with save_scene
+5. Use 3-8 tools to finish completely!
+6. ALWAYS verify critical operations succeeded
+
+VALIDATION REQUIREMENTS:
+- Camera height: 0.5 to 3.0 (NOT 19 when you meant 1.9!)
+- GameObject positions: typically -10 to 10
+- Scale values: typically 0.1 to 10
 
 Example completion:
-[TOOL:create_and_attach_script(gameobject_name=""Player"", script_name=""FirstPersonController"", script_content=""<FULL C# CODE>"")]
-[TOOL:set_position(gameobject_name=""Player"", x=0, y=1, z=0)]
-[TOOL:create_light(...)]
-[TOOL:save_scene()]
+[TOOL:create_and_attach_script]
+gameobject_name: Player
+script_name: FirstPersonController
+script_content:
+using UnityEngine;
+public class FirstPersonController : MonoBehaviour
+{
+    void Update() { /* code */ }
+}
+[/TOOL]
+[TOOL:set_position]
+gameobject_name: PlayerCamera
+x: 0
+y: 1.7
+z: 0
+[/TOOL]
+[TOOL:create_light]
+name: MainLight
+light_type: directional
+intensity: 1.0
+[/TOOL]
+[TOOL:save_scene]
+[/TOOL]
 
-NOW - EXECUTE THE REMAINING TOOLS!";
+NOW - EXECUTE THE REMAINING TOOLS CORRECTLY!";
             
             string fullPrompt = $"{contextPrompt}\n\n{toolsInfo}\n\n{continuationPrompt}\n\nAssistant:";
             
