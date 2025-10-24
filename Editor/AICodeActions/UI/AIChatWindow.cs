@@ -410,7 +410,7 @@ namespace AICodeActions.UI
                     // Draw text before code block
                     if (match.Index > lastIndex)
                     {
-                        string textBefore = message.content.Substring(lastIndex, match.Index - lastIndex);
+                        string textBefore = content.Substring(lastIndex, match.Index - lastIndex);
                         if (!string.IsNullOrWhiteSpace(textBefore))
                         {
                             EditorGUILayout.LabelField(textBefore, EditorStyles.wordWrappedLabel);
@@ -432,9 +432,9 @@ namespace AICodeActions.UI
                 }
                 
                 // Draw remaining text
-                if (lastIndex < message.content.Length)
+                if (lastIndex < content.Length)
                 {
-                    string textAfter = message.content.Substring(lastIndex);
+                    string textAfter = content.Substring(lastIndex);
                     if (!string.IsNullOrWhiteSpace(textAfter))
                     {
                         EditorGUILayout.LabelField(textAfter, EditorStyles.wordWrappedLabel);
@@ -444,7 +444,7 @@ namespace AICodeActions.UI
             else
             {
                 // No code blocks, just show text
-                EditorGUILayout.LabelField(message.content, EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField(content, EditorStyles.wordWrappedLabel);
             }
         }
         
