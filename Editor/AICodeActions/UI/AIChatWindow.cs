@@ -25,6 +25,7 @@ namespace AICodeActions.UI
         private string openRouterModel = "openai/gpt-3.5-turbo";
         
         private bool agentMode = true; // Enable agent capabilities by default
+        private bool showThinking = true; // Show AI's reasoning process
         
         // Context tracking for better AI understanding
         private string lastCreatedScript = "";
@@ -203,6 +204,17 @@ namespace AICodeActions.UI
                 conversation.AddSystemMessage(msg);
             }
             
+            // Thinking mode toggle (only show if agent mode is on)
+            if (agentMode)
+            {
+                bool newShowThinking = GUILayout.Toggle(showThinking, "🧠 Thinking", EditorStyles.toolbarButton, GUILayout.Width(80));
+                if (newShowThinking != showThinking)
+                {
+                    showThinking = newShowThinking;
+                    conversation.AddSystemMessage($"💭 Thinking display {(showThinking ? "enabled" : "disabled")}");
+                }
+            }
+            
             if (GUILayout.Button("Settings", EditorStyles.toolbarButton, GUILayout.Width(60)))
             {
                 ShowSettings();
@@ -320,8 +332,74 @@ namespace AICodeActions.UI
         
         private void DrawMessageContent(ChatMessage message)
         {
+            string content = message.content;
+            
+            // Parse and handle thinking blocks (only for assistant messages)
+            if (message.role == MessageRole.Assistant)
+            {
+                var thinkingMatches = Regex.Matches(content, @"<thinking>([\s\S]*?)</thinking>", RegexOptions.IgnoreCase);
+                
+                if (thinkingMatches.Count > 0 && showThinking)
+                {
+                    int lastIndex = 0;
+                    
+                    foreach (Match match in thinkingMatches)
+                    {
+                        // Draw content before thinking block
+                        if (match.Index > lastIndex)
+                        {
+                            string textBefore = content.Substring(lastIndex, match.Index - lastIndex);
+                            DrawContentWithCodeBlocks(textBefore);
+                        }
+                        
+                        // Draw thinking block with special style
+                        EditorGUILayout.Space(5);
+                        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                        
+                        GUIStyle thinkingHeaderStyle = new GUIStyle(EditorStyles.boldLabel);
+                        thinkingHeaderStyle.normal.textColor = new Color(0.6f, 0.8f, 1.0f);
+                        EditorGUILayout.LabelField("💭 AI Thinking Process:", thinkingHeaderStyle);
+                        
+                        EditorGUILayout.Space(3);
+                        
+                        GUIStyle thinkingStyle = new GUIStyle(EditorStyles.wordWrappedLabel);
+                        thinkingStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+                        thinkingStyle.fontSize = 11;
+                        thinkingStyle.fontStyle = FontStyle.Italic;
+                        
+                        string thinkingContent = match.Groups[1].Value.Trim();
+                        EditorGUILayout.LabelField(thinkingContent, thinkingStyle);
+                        
+                        EditorGUILayout.EndVertical();
+                        EditorGUILayout.Space(5);
+                        
+                        lastIndex = match.Index + match.Length;
+                    }
+                    
+                    // Draw remaining content after last thinking block
+                    if (lastIndex < content.Length)
+                    {
+                        string textAfter = content.Substring(lastIndex);
+                        DrawContentWithCodeBlocks(textAfter);
+                    }
+                    
+                    return;
+                }
+                else if (thinkingMatches.Count > 0 && !showThinking)
+                {
+                    // Remove thinking blocks if showThinking is false
+                    content = Regex.Replace(content, @"<thinking>[\s\S]*?</thinking>\s*", "", RegexOptions.IgnoreCase);
+                }
+            }
+            
+            // No thinking blocks or thinking disabled, draw normally
+            DrawContentWithCodeBlocks(content);
+        }
+        
+        private void DrawContentWithCodeBlocks(string content)
+        {
             // Check if message contains code blocks
-            var codeBlockMatches = Regex.Matches(message.content, @"```(?:csharp|c#)?\n([\s\S]*?)```");
+            var codeBlockMatches = Regex.Matches(content, @"```(?:csharp|c#)?\n([\s\S]*?)```");
             
             if (codeBlockMatches.Count > 0)
             {
@@ -660,7 +738,38 @@ Try it now in Unity!
 4. **HANDLE ERRORS** - If one approach fails, try another immediately!
 5. **STAY FOCUSED** - Complete the user's request, not part of it!
 
-NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀";
+NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
+
+═══════════════════════════════════════════════════════════════════
+
+## 🧠 THINKING PROTOCOL
+
+BEFORE executing tools, you MUST think through your approach:
+
+```
+<thinking>
+Let me analyze this request step by step:
+
+1. User wants: [summarize request]
+2. Required components: [list what's needed]
+3. Execution plan:
+   - Step 1: [tool + reasoning]
+   - Step 2: [tool + reasoning]
+   - Step 3: [tool + reasoning]
+   ...
+4. Potential issues: [what could go wrong]
+5. Success criteria: [how to verify it worked]
+</thinking>
+
+Now I'll execute this plan...
+
+[TOOL:...]
+[TOOL:...]
+...
+```
+
+This thinking section helps ensure you don't miss steps!
+Use <thinking> tags EVERY TIME before tool execution.";
                     
                     // Add context awareness
                     string contextSummary = agentTools.GetContextSummary();
