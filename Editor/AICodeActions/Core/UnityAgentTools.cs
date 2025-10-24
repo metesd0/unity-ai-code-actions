@@ -510,35 +510,78 @@ namespace AICodeActions.Core
                 }
                 else
                 {
+                    // Use case-insensitive search
                     objects = Resources.FindObjectsOfTypeAll<GameObject>()
-                        .Where(go => go.name.Contains(searchTerm) && go.scene.isLoaded)
+                        .Where(go => go.scene.isLoaded && 
+                                     go.name.IndexOf(searchTerm, System.StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                     !go.hideFlags.HasFlag(HideFlags.HideInHierarchy))
                         .ToArray();
                 }
                 
                 if (objects.Length == 0)
-                    return $"No GameObjects found matching '{searchTerm}'";
+                {
+                    // Provide helpful suggestions
+                    var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                    var allObjects = scene.GetRootGameObjects();
+                    
+                    var result = new System.Text.StringBuilder();
+                    result.AppendLine($"❌ No GameObjects found matching '{searchTerm}'");
+                    result.AppendLine();
+                    result.AppendLine($"💡 Current scene: {scene.name}");
+                    result.AppendLine($"💡 Total root objects: {allObjects.Length}");
+                    
+                    if (allObjects.Length > 0)
+                    {
+                        result.AppendLine();
+                        result.AppendLine("Available GameObjects:");
+                        foreach (var go in allObjects.Take(10))
+                        {
+                            result.AppendLine($"  - {go.name}");
+                            // Show children too
+                            for (int i = 0; i < go.transform.childCount && i < 3; i++)
+                            {
+                                result.AppendLine($"    - {go.transform.GetChild(i).name}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        result.AppendLine();
+                        result.AppendLine("⚠️ Scene is empty! Create some GameObjects first.");
+                    }
+                    
+                    return result.ToString();
+                }
                 
-                var result = new System.Text.StringBuilder();
-                result.AppendLine($"Found {objects.Length} GameObject(s):");
+                var foundResult = new System.Text.StringBuilder();
+                foundResult.AppendLine($"✅ Found {objects.Length} GameObject(s) matching '{searchTerm}':");
+                foundResult.AppendLine();
                 
                 foreach (var go in objects.Take(20)) // Limit to 20
                 {
-                    result.AppendLine($"- {go.name} (Path: {GetGameObjectPath(go)})");
+                    foundResult.AppendLine($"📦 **{go.name}**");
+                    foundResult.AppendLine($"   Path: {GetGameObjectPath(go)}");
+                    foundResult.AppendLine($"   Active: {go.activeInHierarchy}");
                     
                     var components = go.GetComponents<Component>();
-                    foreach (var comp in components)
+                    if (components.Length > 1) // More than just Transform
                     {
-                        if (comp != null && !(comp is Transform))
+                        foundResult.AppendLine($"   Components:");
+                        foreach (var comp in components)
                         {
-                            result.AppendLine($"    [{comp.GetType().Name}]");
+                            if (comp != null && !(comp is Transform))
+                            {
+                                foundResult.AppendLine($"     • {comp.GetType().Name}");
+                            }
                         }
                     }
+                    foundResult.AppendLine();
                 }
                 
                 if (objects.Length > 20)
-                    result.AppendLine($"... and {objects.Length - 20} more");
+                    foundResult.AppendLine($"... and {objects.Length - 20} more");
                 
-                return result.ToString();
+                return foundResult.ToString();
             }
             catch (Exception e)
             {
