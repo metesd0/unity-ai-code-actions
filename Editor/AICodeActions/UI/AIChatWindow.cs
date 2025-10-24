@@ -642,7 +642,7 @@ Execute user requests COMPLETELY and RELIABLY. Never give up after errors. Alway
                         }
                         
                         // Update message with tool list
-                        conversation.messages[conversation.messages.Count - 1].content = progressMessage;
+                        conversation.UpdateLastAssistantMessage(progressMessage);
                         Repaint();
                     }
                     
@@ -650,7 +650,7 @@ Execute user requests COMPLETELY and RELIABLY. Never give up after errors. Alway
                     string processedResponse = agentTools.ProcessToolCalls(response);
                     
                     // Replace with final result
-                    conversation.messages[conversation.messages.Count - 1].content = processedResponse;
+                    conversation.UpdateLastAssistantMessage(processedResponse);
                 }
                 else
                 {

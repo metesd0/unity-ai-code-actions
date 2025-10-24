@@ -63,6 +63,21 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
+        /// Update the content of the last assistant message
+        /// </summary>
+        public void UpdateLastAssistantMessage(string newContent)
+        {
+            for (int i = messages.Count - 1; i >= 0; i--)
+            {
+                if (messages[i].role == MessageRole.Assistant)
+                {
+                    messages[i].content = newContent;
+                    break;
+                }
+            }
+        }
+        
+        /// <summary>
         /// Get conversation history as context for AI
         /// </summary>
         public string GetContextString(int messageCount = CONTEXT_MESSAGES)
