@@ -295,6 +295,182 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
+        /// Set parent of a GameObject
+        /// </summary>
+        public static string SetParent(string childName, string parentName)
+        {
+            try
+            {
+                var child = GameObject.Find(childName);
+                if (child == null)
+                    return $"❌ GameObject '{childName}' not found";
+                
+                GameObject parent = null;
+                if (!string.IsNullOrEmpty(parentName) && parentName.ToLower() != "null" && parentName.ToLower() != "none")
+                {
+                    parent = GameObject.Find(parentName);
+                    if (parent == null)
+                        return $"❌ Parent GameObject '{parentName}' not found";
+                }
+                
+                Undo.SetTransformParent(child.transform, parent?.transform, "Set Parent");
+                
+                string result = parent == null 
+                    ? $"✅ Moved {childName} to root (no parent)"
+                    : $"✅ Set {childName} parent to {parentName}";
+                
+                Debug.Log($"[SetParent] {result}");
+                Selection.activeGameObject = child;
+                
+                return result;
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting parent: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Set GameObject active state
+        /// </summary>
+        public static string SetActive(string gameObjectName, bool active)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                Undo.RecordObject(go, "Set Active");
+                go.SetActive(active);
+                
+                Debug.Log($"[SetActive] {gameObjectName} set to {(active ? "active" : "inactive")}");
+                
+                return $"✅ {gameObjectName} is now {(active ? "active" : "inactive")}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting active: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Rename a GameObject
+        /// </summary>
+        public static string RenameGameObject(string oldName, string newName)
+        {
+            try
+            {
+                var go = GameObject.Find(oldName);
+                if (go == null)
+                    return $"❌ GameObject '{oldName}' not found";
+                
+                Undo.RecordObject(go, "Rename GameObject");
+                go.name = newName;
+                
+                Debug.Log($"[RenameGameObject] Renamed '{oldName}' to '{newName}'");
+                Selection.activeGameObject = go;
+                
+                return $"✅ Renamed '{oldName}' to '{newName}'";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error renaming GameObject: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Duplicate a GameObject
+        /// </summary>
+        public static string DuplicateGameObject(string name, string newName = null)
+        {
+            try
+            {
+                var original = GameObject.Find(name);
+                if (original == null)
+                    return $"❌ GameObject '{name}' not found";
+                
+                var duplicate = GameObject.Instantiate(original);
+                duplicate.name = string.IsNullOrEmpty(newName) ? name + " (Clone)" : newName;
+                
+                Undo.RegisterCreatedObjectUndo(duplicate, "Duplicate GameObject");
+                Selection.activeGameObject = duplicate;
+                EditorGUIUtility.PingObject(duplicate);
+                
+                Debug.Log($"[DuplicateGameObject] Duplicated '{name}' as '{duplicate.name}'");
+                
+                return $"✅ Duplicated '{name}' as '{duplicate.name}'";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error duplicating GameObject: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Set GameObject tag
+        /// </summary>
+        public static string SetTag(string gameObjectName, string tag)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                // Check if tag exists
+                try
+                {
+                    go.tag = tag;
+                }
+                catch (UnityException)
+                {
+                    return $"❌ Tag '{tag}' does not exist. Create it in Tags & Layers first.";
+                }
+                
+                Undo.RecordObject(go, "Set Tag");
+                
+                Debug.Log($"[SetTag] {gameObjectName} tagged as '{tag}'");
+                Selection.activeGameObject = go;
+                
+                return $"✅ {gameObjectName} tagged as '{tag}'";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting tag: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Set GameObject layer
+        /// </summary>
+        public static string SetLayer(string gameObjectName, string layerName)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                int layer = LayerMask.NameToLayer(layerName);
+                if (layer == -1)
+                    return $"❌ Layer '{layerName}' does not exist. Valid layers: Default, TransparentFX, Ignore Raycast, Water, UI";
+                
+                Undo.RecordObject(go, "Set Layer");
+                go.layer = layer;
+                
+                Debug.Log($"[SetLayer] {gameObjectName} set to layer '{layerName}'");
+                Selection.activeGameObject = go;
+                
+                return $"✅ {gameObjectName} set to layer '{layerName}'";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting layer: {e.Message}";
+            }
+        }
+        
+        /// <summary>
         /// Create a primitive GameObject (Cube, Sphere, Capsule, Cylinder, Plane, Quad)
         /// </summary>
         public static string CreatePrimitive(string primitiveType, string name = null, float x = 0, float y = 0, float z = 0)
@@ -912,6 +1088,262 @@ namespace AICodeActions.Core
             catch (Exception e)
             {
                 return $"❌ Error listing scripts: {e.Message}";
+            }
+        }
+        
+        // ==================== MATERIAL & VISUAL ====================
+        
+        /// <summary>
+        /// Create a new material
+        /// </summary>
+        public static string CreateMaterial(string name, string color = null)
+        {
+            try
+            {
+                string path = $"Assets/{name}.mat";
+                
+                // Check if material already exists
+                if (AssetDatabase.LoadAssetAtPath<Material>(path) != null)
+                    return $"❌ Material '{name}' already exists at {path}";
+                
+                var material = new Material(Shader.Find("Standard"));
+                
+                // Set color if provided
+                if (!string.IsNullOrEmpty(color))
+                {
+                    Color col;
+                    if (color.StartsWith("#"))
+                    {
+                        ColorUtility.TryParseHtmlString(color, out col);
+                        material.color = col;
+                    }
+                    else
+                    {
+                        switch (color.ToLower())
+                        {
+                            case "red": material.color = Color.red; break;
+                            case "green": material.color = Color.green; break;
+                            case "blue": material.color = Color.blue; break;
+                            case "white": material.color = Color.white; break;
+                            case "black": material.color = Color.black; break;
+                            case "yellow": material.color = Color.yellow; break;
+                            case "cyan": material.color = Color.cyan; break;
+                            case "magenta": material.color = Color.magenta; break;
+                            case "gray": case "grey": material.color = Color.gray; break;
+                            default: material.color = Color.white; break;
+                        }
+                    }
+                }
+                
+                AssetDatabase.CreateAsset(material, path);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[CreateMaterial] Created material '{name}' at {path}");
+                
+                return $"✅ Created material '{name}' at {path}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error creating material: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Assign a material to a GameObject's renderer
+        /// </summary>
+        public static string AssignMaterial(string gameObjectName, string materialName)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                var renderer = go.GetComponent<Renderer>();
+                if (renderer == null)
+                    return $"❌ GameObject '{gameObjectName}' has no Renderer component";
+                
+                // Find material
+                var materialGuids = AssetDatabase.FindAssets($"{materialName} t:Material");
+                if (materialGuids.Length == 0)
+                    return $"❌ Material '{materialName}' not found. Create it first with create_material.";
+                
+                Material mat = null;
+                foreach (var guid in materialGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var loadedMat = AssetDatabase.LoadAssetAtPath<Material>(path);
+                    if (loadedMat != null && loadedMat.name == materialName)
+                    {
+                        mat = loadedMat;
+                        break;
+                    }
+                }
+                
+                if (mat == null)
+                    return $"❌ Material '{materialName}' not found";
+                
+                Undo.RecordObject(renderer, "Assign Material");
+                renderer.material = mat;
+                
+                Debug.Log($"[AssignMaterial] Assigned '{materialName}' to {gameObjectName}");
+                Selection.activeGameObject = go;
+                
+                return $"✅ Assigned material '{materialName}' to {gameObjectName}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error assigning material: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Create a light GameObject
+        /// </summary>
+        public static string CreateLight(string name, string lightType, string color = "white", float intensity = 1.0f)
+        {
+            try
+            {
+                var go = new GameObject(name);
+                var light = go.AddComponent<Light>();
+                
+                // Set light type
+                switch (lightType.ToLower())
+                {
+                    case "directional": light.type = LightType.Directional; break;
+                    case "point": light.type = LightType.Point; break;
+                    case "spot": light.type = LightType.Spot; break;
+                    case "area": light.type = LightType.Rectangle; break;
+                    default: light.type = LightType.Point; break;
+                }
+                
+                // Set color
+                Color col = Color.white;
+                if (color.StartsWith("#"))
+                {
+                    ColorUtility.TryParseHtmlString(color, out col);
+                }
+                else
+                {
+                    switch (color.ToLower())
+                    {
+                        case "red": col = Color.red; break;
+                        case "green": col = Color.green; break;
+                        case "blue": col = Color.blue; break;
+                        case "yellow": col = Color.yellow; break;
+                        case "cyan": col = Color.cyan; break;
+                        case "magenta": col = Color.magenta; break;
+                        default: col = Color.white; break;
+                    }
+                }
+                light.color = col;
+                light.intensity = intensity;
+                
+                Undo.RegisterCreatedObjectUndo(go, "Create Light");
+                Selection.activeGameObject = go;
+                EditorGUIUtility.PingObject(go);
+                
+                Debug.Log($"[CreateLight] Created {lightType} light '{name}'");
+                
+                return $"✅ Created {lightType} light '{name}' (color: {color}, intensity: {intensity})";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error creating light: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Create a camera GameObject
+        /// </summary>
+        public static string CreateCamera(string name, float fieldOfView = 60f)
+        {
+            try
+            {
+                var go = new GameObject(name);
+                var camera = go.AddComponent<Camera>();
+                camera.fieldOfView = fieldOfView;
+                
+                // Add audio listener if main camera
+                if (name.ToLower().Contains("main"))
+                {
+                    go.AddComponent<AudioListener>();
+                }
+                
+                Undo.RegisterCreatedObjectUndo(go, "Create Camera");
+                Selection.activeGameObject = go;
+                EditorGUIUtility.PingObject(go);
+                
+                Debug.Log($"[CreateCamera] Created camera '{name}' (FOV: {fieldOfView})");
+                
+                return $"✅ Created camera '{name}' (FOV: {fieldOfView}°)";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error creating camera: {e.Message}";
+            }
+        }
+        
+        // ==================== SCENE MANAGEMENT ====================
+        
+        /// <summary>
+        /// Save the current scene
+        /// </summary>
+        public static string SaveScene()
+        {
+            try
+            {
+                var scene = SceneManager.GetActiveScene();
+                
+                if (string.IsNullOrEmpty(scene.path))
+                {
+                    return $"❌ Scene has never been saved. Use 'Save As' from Unity menu first to set a path.";
+                }
+                
+                bool saved = UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene);
+                
+                if (saved)
+                {
+                    Debug.Log($"[SaveScene] Saved scene: {scene.name}");
+                    return $"✅ Saved scene: {scene.name} ({scene.path})";
+                }
+                else
+                {
+                    return $"❌ Failed to save scene: {scene.name}";
+                }
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error saving scene: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Save scene with a new path
+        /// </summary>
+        public static string SaveSceneAs(string sceneName)
+        {
+            try
+            {
+                var scene = SceneManager.GetActiveScene();
+                string path = $"Assets/{sceneName}.unity";
+                
+                bool saved = UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, path);
+                
+                if (saved)
+                {
+                    Debug.Log($"[SaveSceneAs] Saved scene as: {path}");
+                    return $"✅ Saved scene as: {path}";
+                }
+                else
+                {
+                    return $"❌ Failed to save scene as: {path}";
+                }
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error saving scene: {e.Message}";
             }
         }
         
