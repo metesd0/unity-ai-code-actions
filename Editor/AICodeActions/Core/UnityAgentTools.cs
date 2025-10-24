@@ -192,6 +192,144 @@ namespace AICodeActions.Core
             }
         }
         
+        // ==================== GAMEOBJECT MANIPULATION ====================
+        
+        /// <summary>
+        /// Set GameObject position
+        /// </summary>
+        public static string SetPosition(string gameObjectName, float x, float y, float z)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                Undo.RecordObject(go.transform, "Set Position");
+                go.transform.position = new Vector3(x, y, z);
+                
+                Debug.Log($"[SetPosition] {gameObjectName} moved to ({x}, {y}, {z})");
+                Selection.activeGameObject = go;
+                EditorGUIUtility.PingObject(go);
+                
+                return $"✅ Set {gameObjectName} position to ({x}, {y}, {z})";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting position: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Set GameObject rotation (Euler angles)
+        /// </summary>
+        public static string SetRotation(string gameObjectName, float x, float y, float z)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                Undo.RecordObject(go.transform, "Set Rotation");
+                go.transform.rotation = Quaternion.Euler(x, y, z);
+                
+                Debug.Log($"[SetRotation] {gameObjectName} rotated to ({x}, {y}, {z})");
+                Selection.activeGameObject = go;
+                
+                return $"✅ Set {gameObjectName} rotation to ({x}°, {y}°, {z}°)";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting rotation: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Set GameObject scale
+        /// </summary>
+        public static string SetScale(string gameObjectName, float x, float y, float z)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                Undo.RecordObject(go.transform, "Set Scale");
+                go.transform.localScale = new Vector3(x, y, z);
+                
+                Debug.Log($"[SetScale] {gameObjectName} scaled to ({x}, {y}, {z})");
+                Selection.activeGameObject = go;
+                
+                return $"✅ Set {gameObjectName} scale to ({x}, {y}, {z})";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error setting scale: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Delete a GameObject
+        /// </summary>
+        public static string DeleteGameObject(string gameObjectName)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                string info = $"{gameObjectName} (with {go.GetComponents<Component>().Length} components)";
+                Undo.DestroyObjectImmediate(go);
+                
+                Debug.Log($"[DeleteGameObject] Deleted {info}");
+                
+                return $"✅ Deleted {info}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error deleting GameObject: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Create a primitive GameObject (Cube, Sphere, Capsule, Cylinder, Plane, Quad)
+        /// </summary>
+        public static string CreatePrimitive(string primitiveType, string name = null, float x = 0, float y = 0, float z = 0)
+        {
+            try
+            {
+                PrimitiveType type;
+                if (!System.Enum.TryParse(primitiveType, true, out type))
+                {
+                    return $"❌ Invalid primitive type '{primitiveType}'. Valid types: Cube, Sphere, Capsule, Cylinder, Plane, Quad";
+                }
+                
+                var go = GameObject.CreatePrimitive(type);
+                
+                if (!string.IsNullOrEmpty(name))
+                    go.name = name;
+                else
+                    go.name = primitiveType;
+                
+                go.transform.position = new Vector3(x, y, z);
+                
+                Undo.RegisterCreatedObjectUndo(go, "Create Primitive");
+                Selection.activeGameObject = go;
+                EditorGUIUtility.PingObject(go);
+                
+                Debug.Log($"[CreatePrimitive] Created {primitiveType} '{go.name}' at ({x}, {y}, {z})");
+                
+                return $"✅ Created {primitiveType} '{go.name}' at ({x}, {y}, {z})";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error creating primitive: {e.Message}";
+            }
+        }
+        
         /// <summary>
         /// Create a new GameObject in the scene
         /// </summary>

@@ -43,6 +43,36 @@ namespace AICodeActions.Core
                 new string[] { "name", "parent" },
                 (p) => UnityAgentTools.CreateGameObject(p["name"], p.ContainsKey("parent") ? p["parent"] : null));
             
+            RegisterTool("create_primitive",
+                "Create a primitive GameObject (Cube, Sphere, Capsule, Cylinder, Plane, Quad) at a specific position",
+                new string[] { "primitive_type", "name", "x", "y", "z" },
+                (p) => UnityAgentTools.CreatePrimitive(
+                    p["primitive_type"],
+                    p.ContainsKey("name") ? p["name"] : null,
+                    p.ContainsKey("x") ? float.Parse(p["x"]) : 0,
+                    p.ContainsKey("y") ? float.Parse(p["y"]) : 0,
+                    p.ContainsKey("z") ? float.Parse(p["z"]) : 0));
+            
+            RegisterTool("set_position",
+                "Set GameObject position in world space",
+                new string[] { "gameobject_name", "x", "y", "z" },
+                (p) => UnityAgentTools.SetPosition(p["gameobject_name"], float.Parse(p["x"]), float.Parse(p["y"]), float.Parse(p["z"])));
+            
+            RegisterTool("set_rotation",
+                "Set GameObject rotation using Euler angles (degrees)",
+                new string[] { "gameobject_name", "x", "y", "z" },
+                (p) => UnityAgentTools.SetRotation(p["gameobject_name"], float.Parse(p["x"]), float.Parse(p["y"]), float.Parse(p["z"])));
+            
+            RegisterTool("set_scale",
+                "Set GameObject scale",
+                new string[] { "gameobject_name", "x", "y", "z" },
+                (p) => UnityAgentTools.SetScale(p["gameobject_name"], float.Parse(p["x"]), float.Parse(p["y"]), float.Parse(p["z"])));
+            
+            RegisterTool("delete_gameobject",
+                "Delete a GameObject from the scene (supports undo)",
+                new string[] { "gameobject_name" },
+                (p) => UnityAgentTools.DeleteGameObject(p["gameobject_name"]));
+            
             RegisterTool("add_component",
                 "Add a built-in Unity component to a GameObject (e.g., Rigidbody, CharacterController, BoxCollider, AudioSource, Light).",
                 new string[] { "gameobject_name", "component_type" },
