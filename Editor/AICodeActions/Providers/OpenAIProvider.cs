@@ -205,18 +205,18 @@ namespace AICodeActions.Providers
                 var response = await httpClient.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead, // Important for streaming!
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false); // Stay on background thread!
 
                 response.EnsureSuccessStatusCode();
 
                 int chunkIndex = 0; // Moved outside using block
 
-                using (var stream = await response.Content.ReadAsStreamAsync())
+                using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
                 using (var reader = new StreamReader(stream))
                 {
                     while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
                     {
-                        string line = await reader.ReadLineAsync();
+                        string line = await reader.ReadLineAsync().ConfigureAwait(false);
 
                         if (string.IsNullOrWhiteSpace(line))
                             continue;

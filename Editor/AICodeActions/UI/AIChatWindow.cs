@@ -824,7 +824,7 @@ Response format:
                             // Activate streaming update loop
                             isStreamActive = true;
                             
-                            // Now start streaming with callbacks ready
+                            // Now start streaming with callbacks ready (stay on background thread)
                             await streamManager.StartStreamAsync(
                                 async (onChunk, token) =>
                                 {
@@ -833,13 +833,13 @@ Response format:
                                         parameters,
                                         onChunk,
                                         token
-                                    );
+                                    ).ConfigureAwait(false);
                                 },
                                 cancellationTokenSource.Token
-                            );
+                            ).ConfigureAwait(false);
                             
                             // Wait a bit for callbacks to finish
-                            await System.Threading.Tasks.Task.Delay(100);
+                            await System.Threading.Tasks.Task.Delay(100).ConfigureAwait(false);
                             
                             if (string.IsNullOrEmpty(response))
                             {
@@ -849,7 +849,7 @@ Response format:
                         else
                         {
                             // FALLBACK: Old non-streaming method
-                            response = await currentProvider.GenerateAsync(fullPrompt, parameters);
+                            response = await currentProvider.GenerateAsync(fullPrompt, parameters).ConfigureAwait(false);
                         }
                         
                         // Check if response is empty or too short
@@ -860,7 +860,7 @@ Response format:
                             {
                                 statusMessage = $"⚠️ Empty response, retrying ({retryCount}/{maxRetries})...";
                                 Repaint();
-                                await System.Threading.Tasks.Task.Delay(1000); // Wait 1 second
+                                await System.Threading.Tasks.Task.Delay(1000).ConfigureAwait(false); // Wait 1 second
                                 continue;
                             }
                             else
@@ -879,7 +879,7 @@ Response format:
                         {
                             statusMessage = $"⚠️ Error, retrying ({retryCount}/{maxRetries})...";
                             Repaint();
-                            await System.Threading.Tasks.Task.Delay(1000);
+                            await System.Threading.Tasks.Task.Delay(1000).ConfigureAwait(false);
                             continue;
                         }
                         else
