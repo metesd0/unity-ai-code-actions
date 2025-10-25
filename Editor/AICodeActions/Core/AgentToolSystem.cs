@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using Stopwatch = System.Diagnostics.Stopwatch; // Thread-safe timing
 
 namespace AICodeActions.Core
 {
@@ -584,11 +585,11 @@ namespace AICodeActions.Core
                 // Update UI with progress (show tool starting)
                 progressCallback?.Invoke(result.ToString());
                 
-                // Execute tool and measure time
-                var startTime = UnityEditor.EditorApplication.timeSinceStartup;
+                // Execute tool and measure time (thread-safe)
+                var stopwatch = Stopwatch.StartNew();
                 string toolResult = ExecuteToolWithValidation(toolName, parameters);
-                var elapsed = UnityEditor.EditorApplication.timeSinceStartup - startTime;
-                toolExecutionTimes.Add(elapsed);
+                stopwatch.Stop();
+                toolExecutionTimes.Add(stopwatch.Elapsed.TotalSeconds);
                 
                 // Track context from tool execution
                 UpdateContext(toolName, parameters, toolResult);
