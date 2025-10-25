@@ -355,7 +355,7 @@ namespace AICodeActions.Providers
                         // SSE Comments (e.g., ": OPENROUTER PROCESSING") - ignore per SSE spec
                         if (line.StartsWith(":"))
                         {
-                            Debug.Log($"[OpenRouter] SSE Comment: {line}");
+                            // Silently ignore SSE comments
                             continue;
                         }
 
