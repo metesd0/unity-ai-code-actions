@@ -68,8 +68,8 @@ namespace AICodeActions.Core
                 
                 Debug.Log("[StreamManager] Stream started");
                 
-                // Start the stream
-                await streamFunction(OnChunkReceived, cancellationTokenSource.Token);
+                // Start the stream (stay on background thread)
+                await streamFunction(OnChunkReceived, cancellationTokenSource.Token).ConfigureAwait(false);
                 
                 // Flush any remaining buffer
                 FlushBuffer();
@@ -105,7 +105,7 @@ namespace AICodeActions.Core
         private void OnChunkReceived(StreamChunk chunk)
         {
             if (chunk == null)
-                return;
+                return; 
             
             switch (chunk.Type)
             {

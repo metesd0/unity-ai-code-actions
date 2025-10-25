@@ -297,12 +297,12 @@ namespace AICodeActions.Providers
                 var response = await httpClient.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead, // Important for streaming!
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false); // Stay on background thread!
 
                 // Check for pre-stream errors (HTTP status != 200)
                 if (!response.IsSuccessStatusCode)
                 {
-                    string errorBody = await response.Content.ReadAsStringAsync();
+                    string errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     Debug.LogError($"[OpenRouter] HTTP {response.StatusCode}: {errorBody}");
                     
                     onChunk?.Invoke(new StreamChunk
@@ -316,12 +316,12 @@ namespace AICodeActions.Providers
 
                 int chunkIndex = 0;
 
-                using (var stream = await response.Content.ReadAsStreamAsync())
+                using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
                 using (var reader = new StreamReader(stream))
                 {
                     while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
                     {
-                        string line = await reader.ReadLineAsync();
+                        string line = await reader.ReadLineAsync().ConfigureAwait(false);
 
                         if (string.IsNullOrWhiteSpace(line))
                             continue;
