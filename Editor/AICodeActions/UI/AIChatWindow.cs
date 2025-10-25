@@ -67,7 +67,7 @@ namespace AICodeActions.UI
         private int thinkingTypingIndex = 0;
         private string fullThinkingBuffer = "";
         private const float THINKING_FADE_DURATION = 0.5f;
-        private const float THINKING_VISIBLE_TIME = 2.0f;
+        private const float THINKING_VISIBLE_TIME = 5.0f; // Thinking stays visible for 5 seconds
         private const float THINKING_TYPING_SPEED = 0.02f; // seconds per character
         
         // Cancellation support
