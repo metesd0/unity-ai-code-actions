@@ -18,6 +18,7 @@ namespace AICodeActions.UI
         private IModelProvider currentProvider;
         private AgentToolSystem agentTools;
         private StreamManager streamManager; // NEW: Streaming support
+        private bool isStreamActive = false; // Only update when actively streaming
         
         private int selectedProviderIndex = 0;
         private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)", "OpenRouter" };
@@ -68,6 +69,7 @@ namespace AICodeActions.UI
         {
             // Reset state
             isProcessing = false;
+            isStreamActive = false;
             cancellationTokenSource = null;
             statusMessage = "Ready";
             
@@ -98,6 +100,9 @@ namespace AICodeActions.UI
         
         private void OnDisable()
         {
+            // Stop streaming update loop
+            isStreamActive = false;
+            
             // Unsubscribe from update loop
             EditorApplication.update -= OnEditorUpdate;
             
@@ -115,11 +120,11 @@ namespace AICodeActions.UI
         
         /// <summary>
         /// Called every frame by Unity Editor
-        /// Updates streaming buffer
+        /// Updates streaming buffer (only when actively streaming)
         /// </summary>
         private void OnEditorUpdate()
         {
-            if (streamManager != null)
+            if (isStreamActive && streamManager != null)
             {
                 streamManager.Update();
             }
@@ -836,13 +841,18 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                             streamManager.OnComplete = (finalText) =>
                             {
                                 response = finalText;
+                                isStreamActive = false; // Stop update loop
                             };
                             
                             streamManager.OnError = (error) =>
                             {
                                 Debug.LogError($"[AI Chat] Streaming error: {error}");
                                 response = $"⚠️ Streaming error: {error}";
+                                isStreamActive = false; // Stop update loop
                             };
+                            
+                            // Activate streaming update loop
+                            isStreamActive = true;
                             
                             // Now start streaming with callbacks ready
                             await streamManager.StartStreamAsync(
@@ -958,6 +968,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
             }
             catch (System.OperationCanceledException)
             {
+                isStreamActive = false; // Stop update loop
                 statusMessage = "Request cancelled";
                 conversation.AddSystemMessage("🛑 Request cancelled by user");
                 SaveConversation();
@@ -965,6 +976,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
             }
             catch (Exception e)
             {
+                isStreamActive = false; // Stop update loop
                 statusMessage = $"Error: {e.Message}";
                 conversation.AddSystemMessage($"❌ Error: {e.Message}");
                 SaveConversation();
@@ -973,6 +985,7 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
             finally
             {
                 isProcessing = false;
+                isStreamActive = false; // Ensure streaming is stopped
                 cancellationTokenSource = null;
                 
                 // Force repaint after a short delay to avoid flashing
