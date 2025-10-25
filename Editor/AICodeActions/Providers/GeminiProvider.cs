@@ -1,11 +1,11 @@
 using System;
 using System.Globalization;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AICodeActions.Core;
 using UnityEngine;
-using UnityEngine.Networking;
 
 namespace AICodeActions.Providers
 {
@@ -15,6 +15,7 @@ namespace AICodeActions.Providers
         private const string DEFAULT_MODEL = "gemini-pro";
 
         private ProviderConfig config;
+        private static HttpClient httpClient;
 
         public string Name => "Gemini";
         public bool IsConfigured => !string.IsNullOrEmpty(config?.apiKey);
@@ -34,6 +35,13 @@ namespace AICodeActions.Providers
             
             if (!IsConfigured)
                 throw new InvalidOperationException("Gemini provider is not configured. Please set API key.");
+
+                // Initialize HttpClient if needed (thread-safe, background-compatible)
+            if (httpClient == null)
+            {
+                httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromMinutes(5);
+            }
 
             parameters = parameters ?? new ModelParameters();
             var model = string.IsNullOrEmpty(parameters.model) || parameters.model == "default" 
@@ -56,38 +64,33 @@ namespace AICodeActions.Providers
                 }}
             }}";
             
-            Debug.Log($"[Gemini] Request Body: {jsonBody.Substring(0, Mathf.Min(200, jsonBody.Length))}...");
+            Debug.Log($"[Gemini] Request Body: {jsonBody.Substring(0, Math.Min(200, jsonBody.Length))}...");
 
-            using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+            try
             {
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-
-                Debug.Log("[Gemini] Sending request...");
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                 
-                // Properly await UnityWebRequest without blocking main thread
-                var tcs = new TaskCompletionSource<bool>();
-                var operation = request.SendWebRequest();
+                Debug.Log("[Gemini] Sending HTTP request...");
+                var response = await httpClient.PostAsync(url, content).ConfigureAwait(false);
                 
-                operation.completed += _ => tcs.TrySetResult(true);
+                Debug.Log($"[Gemini] Response Status: {response.StatusCode}");
                 
-                await tcs.Task.ConfigureAwait(false);
-
-                Debug.Log($"[Gemini] Request completed. Result: {request.result}");
-                Debug.Log($"[Gemini] Response Code: {request.responseCode}");
-
-                if (request.result != UnityWebRequest.Result.Success)
+                string rawResponse = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                
+                if (!response.IsSuccessStatusCode)
                 {
-                    Debug.LogError($"[Gemini] HTTP Error: {request.error}");
-                    Debug.LogError($"[Gemini] Response Body: {request.downloadHandler.text}");
-                    throw new Exception($"Gemini API Error: {request.error}\n{request.downloadHandler.text}");
+                    Debug.LogError($"[Gemini] HTTP Error: {response.StatusCode}");
+                    Debug.LogError($"[Gemini] Response Body: {rawResponse}");
+                    throw new Exception($"Gemini API Error: {response.StatusCode}\n{rawResponse}");
                 }
 
-                string rawResponse = request.downloadHandler.text;
-                Debug.Log($"[Gemini] Raw JSON Response: {rawResponse.Substring(0, Mathf.Min(500, rawResponse.Length))}...");
+                Debug.Log($"[Gemini] Raw JSON Response: {rawResponse.Substring(0, Math.Min(500, rawResponse.Length))}...");
                 return ParseResponse(rawResponse);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Gemini] Exception: {ex.Message}");
+                throw;
             }
         }
 
