@@ -887,128 +887,21 @@ namespace AICodeActions.UI
                 {
                     systemPrompt = @"# Unity AI Assistant
 
-You are an expert Unity editor agent. Execute user requests using smart tool grouping.
+You are an expert Unity editor agent. Execute user requests intelligently using available tools.
 
-## 🎯 CRITICAL: ONE GROUP PER RESPONSE
+## 🎯 Core Principles
 
-**WRITE ONLY ONE GROUP PER RESPONSE!**
-
-After each group execution, I will show you results. Then write the NEXT group.
-
-Follow these grouping rules:
-
-### 📋 Rule 1: Query Tools → ALWAYS ALONE
-**These tools need results before continuing:**
-- `find_gameobjects` → WAIT for result
-- `get_scene_info` → WAIT for result  
-- `get_component_property` → WAIT for result
-
-**Example:**
-```
-[TOOL:find_gameobjects]
-search_term: Light
-[/TOOL]
-→ WAIT → See result → Then use the names found
-```
-
-### 🎨 Rule 2: Same Object Operations → GROUP (max 3-5 tools)
-**Operations on the SAME GameObject can be grouped:**
-- `create_primitive` + `set_scale` + `set_position` + `set_rotation` → ONE GROUP
-- `create_material` + `assign_material` (same material) → ONE GROUP
-
-**Example:**
-```
-[TOOL:create_primitive]
-primitive_type: Cube
-name: RedCube
-[/TOOL]
-
-[TOOL:set_scale]
-gameobject_name: RedCube
-x: 2
-y: 2
-z: 2
-[/TOOL]
-
-[TOOL:create_material]
-name: RedMaterial
-color: #FF0000
-[/TOOL]
-
-[TOOL:assign_material]
-gameobject_name: RedCube
-material_name: RedMaterial
-[/TOOL]
-→ Execute ALL 4 tools as ONE GROUP → RedCube complete!
-```
-
-### 🏗️ Rule 3: Different Objects → SEPARATE RESPONSES
-**Each object gets its own response:**
-
-**Your Response 1 (Hull group only):**
-```
-[TOOL:create_primitive] YachtHull
-[TOOL:set_scale] YachtHull
-[TOOL:set_position] YachtHull
-```
-→ System executes → Shows result → You continue
-
-**Your Response 2 (Deck group only):**
-```
-[TOOL:create_primitive] YachtDeck
-[TOOL:set_scale] YachtDeck
-```
-→ System executes → Shows result → You continue
-
-**Your Response 3 (Materials group only):**
-```
-[TOOL:create_material] YachtBlue
-[TOOL:create_material] YachtWhite
-[TOOL:assign_material] YachtHull, YachtBlue
-[TOOL:assign_material] YachtDeck, YachtWhite
-```
-→ Done!
-
-### ⚡ Rule 4: Keep Groups Small (3-5 tools max)
-Don't create huge groups. Break complex tasks into 3-5 tool groups.
-
-**Good:** 4 tools per group (readable, trackable)
-**Bad:** 20 tools in one group (too much, can't track)
-
-## 🧠 Decision Flow:
-
-1. **Is it a query tool?** → Write it ALONE, wait for result
-2. **Same object operations?** → Group them (max 3-5) in THIS response
-3. **Different objects?** → Next object in NEXT response
-4. **Complex task?** → Break into multiple responses, one group each
-
-## ❌ WRONG - DON'T DO THIS:
-```
-[TOOL:create_primitive] Hull
-[TOOL:set_scale] Hull
-[TOOL:create_primitive] Deck  ← STOP! This is different object!
-```
-
-## ✅ CORRECT - DO THIS:
-**Response 1:**
-```
-[TOOL:create_primitive] Hull
-[TOOL:set_scale] Hull
-```
-→ WAIT for execution result
-
-**Response 2:**
-```
-[TOOL:create_primitive] Deck
-[TOOL:set_scale] Deck
-```
-
-After EACH group execution, I show you results. Then write NEXT group in NEXT response!
+Write tools naturally to complete the user's request. The system will automatically handle execution and grouping for optimal user experience.
 
 **Think Before Acting:**
 - Analyze the user's request carefully
 - If you need information, get it first (use get_scene_info, find_gameobjects)
 - Then take action based on real data, not assumptions
+
+**After Tool Execution:**
+- I will show you the results
+- Think about the results, then decide your next action
+- Continue until the task is complete
 
 **GameObject Names:**
 - ❌ NEVER assume 'Main Camera', 'Directional Light', 'Cube', etc.
@@ -1269,13 +1162,16 @@ parameter2: value2
                     {
                         try
                         {
-                            // Process tools with live progress updates (ON MAIN THREAD)
-                            string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
+                            // 🎯 Process tools IN GROUPS with sequential execution (ON MAIN THREAD)
+                            var groupResults = agentTools.ProcessToolCallsInGroups(response, (groupProgress) =>
                             {
-                                conversation.UpdateLastAssistantMessage(progress);
+                                conversation.UpdateLastAssistantMessage(groupProgress);
                                 Repaint();
                                 autoScroll = true;
-                            }, currentDetailLevel.ToString());
+                            });
+                            
+                            // Combine all group results
+                            string processedResponse = string.Join("\n", groupResults);
                             
                             tcs.SetResult(processedResponse);
                         }
@@ -1375,12 +1271,16 @@ parameter2: value2
                             {
                                 try
                                 {
-                                    string contProcessed = agentTools.ProcessToolCallsWithProgress(continuationResponse, (progress) =>
+                                    // 🎯 Process tools IN GROUPS with sequential execution (ON MAIN THREAD)
+                                    var contGroupResults = agentTools.ProcessToolCallsInGroups(continuationResponse, (groupProgress) =>
                                     {
-                                        conversation.UpdateLastAssistantMessage(accumulatedResponse + "\n\n" + progress);
+                                        conversation.UpdateLastAssistantMessage(accumulatedResponse + "\n\n" + groupProgress);
                                         Repaint();
                                         autoScroll = true;
-                                    }, currentDetailLevel.ToString());
+                                    });
+                                    
+                                    // Combine all group results
+                                    string contProcessed = string.Join("\n", contGroupResults);
                                     
                                     contTcs.SetResult(contProcessed);
                                 }
