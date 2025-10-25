@@ -314,44 +314,32 @@ namespace AICodeActions.UI
             EditorGUILayout.Space(5);
             
             DrawStatusBar();
-            
-            // Draw thinking footer (floating at bottom)
-            if (showThinking && thinkingAlpha > 0 && !string.IsNullOrEmpty(liveThinkingText))
-            {
-                DrawThinkingFooter();
-            }
         }
         
-        private void DrawThinkingFooter()
+        private void DrawThinkingFooterInline()
         {
-            // Calculate position at bottom of window, above status bar
-            float footerHeight = 40f;
-            Rect footerRect = new Rect(0, position.height - footerHeight - 25, position.width, footerHeight);
-            
             // Save original GUI color
             Color originalColor = GUI.color;
             Color originalBgColor = GUI.backgroundColor;
             
             // Apply fade alpha
             GUI.color = new Color(1f, 1f, 1f, thinkingAlpha * 0.6f); // Soluk efekt
-            GUI.backgroundColor = new Color(0.2f, 0.2f, 0.3f, thinkingAlpha * 0.8f);
+            GUI.backgroundColor = new Color(0.2f, 0.2f, 0.3f, thinkingAlpha * 0.5f);
             
-            // Draw background box
-            GUI.Box(footerRect, "", EditorStyles.helpBox);
-            
-            // Draw thinking icon and text
-            Rect contentRect = new Rect(footerRect.x + 10, footerRect.y + 10, footerRect.width - 20, footerRect.height - 20);
+            // Draw background box using GUILayout
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             
             // Apply alpha to text color
             Color textColor = EditorGUIUtility.isProSkin ? 
                 new Color(0.8f, 0.8f, 1f, thinkingAlpha) : 
-                new Color(0.2f, 0.2f, 0.4f, thinkingAlpha);
+                new Color(0.3f, 0.3f, 0.5f, thinkingAlpha);
             
             GUIStyle thinkingStyle = new GUIStyle(EditorStyles.label);
             thinkingStyle.normal.textColor = textColor;
             thinkingStyle.fontSize = 11;
             thinkingStyle.fontStyle = FontStyle.Italic;
             thinkingStyle.wordWrap = true;
+            thinkingStyle.padding = new RectOffset(10, 10, 8, 8);
             
             // Draw thinking text with icon
             string displayText = $"💭 {liveThinkingText}";
@@ -360,7 +348,9 @@ namespace AICodeActions.UI
                 displayText += "▌"; // Typing cursor
             }
             
-            GUI.Label(contentRect, displayText, thinkingStyle);
+            GUILayout.Label(displayText, thinkingStyle);
+            
+            EditorGUILayout.EndVertical();
             
             // Restore original colors
             GUI.color = originalColor;
@@ -592,6 +582,12 @@ namespace AICodeActions.UI
             {
                 DrawMessage(message);
                 EditorGUILayout.Space(5);
+            }
+            
+            // Draw thinking footer right after last message (inside scroll view)
+            if (showThinking && thinkingAlpha > 0 && !string.IsNullOrEmpty(liveThinkingText))
+            {
+                DrawThinkingFooterInline();
             }
             
             EditorGUILayout.EndScrollView();
