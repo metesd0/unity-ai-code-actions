@@ -53,7 +53,7 @@ namespace AICodeActions.Core
                 
                 AssetDatabase.CreateAsset(material, path);
                 AssetDatabase.SaveAssets();
-                // Unity auto-imports - no need to block UI with Refresh()
+                AssetDatabase.Refresh();
                 
                 Debug.Log($"[CreateMaterial] Created material '{name}' at {path}");
                 

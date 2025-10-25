@@ -229,7 +229,6 @@ namespace AICodeActions.Providers
                             // Check for [DONE] signal
                             if (jsonData == "[DONE]")
                             {
-                                Debug.Log("[OpenAI] Stream completed (DONE signal)");
                                 onChunk?.Invoke(new StreamChunk
                                 {
                                     Type = StreamChunkType.Done,
@@ -259,12 +258,9 @@ namespace AICodeActions.Providers
                         }
                     }
                 }
-
-                Debug.Log($"[OpenAI] Streaming finished. Total chunks: {chunkIndex}");
             }
             catch (OperationCanceledException)
             {
-                Debug.Log("[OpenAI] Streaming cancelled");
                 throw;
             }
             catch (Exception ex)
