@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Net.Http;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using AICodeActions.Core;
 using UnityEngine;
@@ -25,7 +22,7 @@ namespace AICodeActions.Providers
         public string Name => "OpenRouter";
         public bool IsConfigured => !string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelName);
         public bool RequiresApiKey => true;
-        public bool SupportsStreaming => true; // ✅ NOW SUPPORTED!
+        public bool SupportsStreaming => false; // Streaming disabled for stability
         
         public void Configure(string apiKey, Dictionary<string, object> settings = null)
         {
@@ -260,230 +257,14 @@ namespace AICodeActions.Providers
             return sb.ToString();
         }
         
-        public async Task StreamGenerateAsync(
+        public Task StreamGenerateAsync(
             string prompt,
             ModelParameters parameters,
             Action<StreamChunk> onChunk,
             CancellationToken cancellationToken = default)
         {
-            if (!IsConfigured)
-            {
-                throw new Exception("OpenRouter provider is not configured.");
-            }
-
-            parameters = parameters ?? new ModelParameters();
-            string url = $"{baseUrl}/chat/completions";
-
-            // Build request with streaming enabled
-            string requestBody = BuildStreamingRequestBody(prompt, parameters);
-
-            Debug.Log($"[OpenRouter] Starting streaming request to: {url}");
-
-            try
-            {
-                using (var httpClient = new HttpClient())
-                {
-                    httpClient.Timeout = TimeSpan.FromMinutes(5);
-
-                    var request = new HttpRequestMessage(HttpMethod.Post, url);
-                    request.Headers.Add("Authorization", $"Bearer {apiKey}");
-                    request.Headers.Add("HTTP-Referer", "https://unity.com");
-                    request.Headers.Add("X-Title", "Unity AI Code Actions");
-                    request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-
-                    var response = await httpClient.SendAsync(
-                        request,
-                        HttpCompletionOption.ResponseHeadersRead,
-                        cancellationToken);
-
-                    response.EnsureSuccessStatusCode();
-
-                    int chunkIndex = 0;
-
-                    using (var stream = await response.Content.ReadAsStreamAsync())
-                    using (var reader = new StreamReader(stream))
-                    {
-                        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
-                        {
-                            string line = await reader.ReadLineAsync();
-
-                            if (string.IsNullOrWhiteSpace(line))
-                                continue;
-
-                            // Handle SSE comments (OpenRouter timeout prevention)
-                            // Example: ": OPENROUTER PROCESSING"
-                            if (line.StartsWith(":"))
-                            {
-                                // Silently ignore SSE comments per spec (no need to log)
-                                continue;
-                            }
-
-                            // OpenRouter uses same SSE format as OpenAI: "data: {...}"
-                            if (line.StartsWith("data: "))
-                            {
-                                string jsonData = line.Substring(6).Trim();
-
-                                // Check for [DONE] signal
-                                if (jsonData == "[DONE]")
-                                {
-                                    onChunk?.Invoke(new StreamChunk
-                                    {
-                                        Type = StreamChunkType.Done,
-                                        IsFinal = true,
-                                        Index = chunkIndex++
-                                    });
-                                    break;
-                                }
-
-                                // Parse JSON chunk
-                                try
-                                {
-                                    // Check for mid-stream error (after tokens already sent)
-                                    if (jsonData.Contains("\"error\""))
-                                    {
-                                        // Try to extract error message
-                                        int errorMsgStart = jsonData.IndexOf("\"message\":\"");
-                                        if (errorMsgStart != -1)
-                                        {
-                                            errorMsgStart += 11;
-                                            int errorMsgEnd = jsonData.IndexOf("\"", errorMsgStart);
-                                            string errorMsg = jsonData.Substring(errorMsgStart, errorMsgEnd - errorMsgStart);
-                                            
-                                            Debug.LogError($"[OpenRouter] Mid-stream error: {errorMsg}");
-                                            onChunk?.Invoke(new StreamChunk
-                                            {
-                                                Type = StreamChunkType.Error,
-                                                Delta = $"Error: {errorMsg}",
-                                                IsFinal = true,
-                                                Index = chunkIndex++
-                                            });
-                                            break;
-                                        }
-                                    }
-
-                                    string content = ExtractStreamContent(jsonData);
-
-                                    if (!string.IsNullOrEmpty(content))
-                                    {
-                                        onChunk?.Invoke(new StreamChunk(content, StreamChunkType.TextDelta)
-                                        {
-                                            Index = chunkIndex++
-                                        });
-                                    }
-                                    
-                                    // Check for error finish_reason
-                                    if (jsonData.Contains("\"finish_reason\":\"error\""))
-                                    {
-                                        onChunk?.Invoke(new StreamChunk
-                                        {
-                                            Type = StreamChunkType.Done,
-                                            IsFinal = true,
-                                            Index = chunkIndex++
-                                        });
-                                        break;
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.LogWarning($"[OpenRouter] Failed to parse chunk: {ex.Message}");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[OpenRouter] Streaming error: {ex.Message}");
-                onChunk?.Invoke(new StreamChunk
-                {
-                    Type = StreamChunkType.Error,
-                    Delta = $"Error: {ex.Message}",
-                    IsFinal = true
-                });
-                throw;
-            }
-        }
-
-        private string BuildStreamingRequestBody(string prompt, ModelParameters parameters)
-        {
-            string tempStr = parameters.temperature.ToString(CultureInfo.InvariantCulture);
-            string topPStr = parameters.topP.ToString(CultureInfo.InvariantCulture);
-
-            var body = new StringBuilder();
-            body.Append("{");
-            body.Append($"\"model\":\"{modelName}\",");
-            body.Append("\"messages\":[");
-            body.Append("{\"role\":\"user\",\"content\":");
-            body.Append(JsonEscape(prompt));
-            body.Append("}],");
-            body.Append($"\"max_tokens\":{parameters.maxTokens},");
-            body.Append($"\"temperature\":{tempStr},");
-            body.Append($"\"top_p\":{topPStr},");
-            body.Append("\"stream\":true"); // ← Enable streaming!
-            body.Append("}");
-
-            return body.ToString();
-        }
-
-        private string ExtractStreamContent(string jsonChunk)
-        {
-            // OpenRouter format: {"choices":[{"delta":{"content":"text"}}]}
-            try
-            {
-                int contentIndex = jsonChunk.IndexOf("\"content\":\"");
-                if (contentIndex == -1)
-                    return string.Empty;
-
-                int contentStart = contentIndex + 11; // "content":"
-                int contentEnd = contentStart;
-
-                // Find end quote (handle escaped quotes)
-                bool escaped = false;
-                for (int i = contentStart; i < jsonChunk.Length; i++)
-                {
-                    if (escaped)
-                    {
-                        escaped = false;
-                        continue;
-                    }
-
-                    if (jsonChunk[i] == '\\')
-                    {
-                        escaped = true;
-                        continue;
-                    }
-
-                    if (jsonChunk[i] == '"')
-                    {
-                        contentEnd = i;
-                        break;
-                    }
-                }
-
-                if (contentEnd <= contentStart)
-                    return string.Empty;
-
-                string content = jsonChunk.Substring(contentStart, contentEnd - contentStart);
-
-                // Unescape
-                content = content.Replace("\\n", "\n")
-                                .Replace("\\r", "\r")
-                                .Replace("\\t", "\t")
-                                .Replace("\\\"", "\"")
-                                .Replace("\\\\", "\\");
-
-                return content;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[OpenRouter] Extract content error: {ex.Message}");
-                return string.Empty;
-            }
+            // Streaming not implemented for OpenRouter - use non-streaming GenerateAsync instead
+            throw new NotImplementedException("OpenRouter streaming is disabled. Use GenerateAsync instead.");
         }
     }
 }
