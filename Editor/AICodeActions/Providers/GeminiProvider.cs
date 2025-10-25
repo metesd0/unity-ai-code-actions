@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -20,7 +21,7 @@ namespace AICodeActions.Providers
         public string Name => "Gemini";
         public bool IsConfigured => !string.IsNullOrEmpty(config?.apiKey);
         public bool RequiresApiKey => true;
-        public bool SupportsStreaming => false; // TODO: Implement later
+        public bool SupportsStreaming => true; // SSE streaming enabled!
 
         public GeminiProvider(ProviderConfig config)
         {
@@ -163,13 +164,179 @@ namespace AICodeActions.Providers
             return result;
         }
 
-        public Task StreamGenerateAsync(
+        public async Task StreamGenerateAsync(
             string prompt,
             ModelParameters parameters,
             Action<StreamChunk> onChunk,
             CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException("Gemini streaming will be implemented in Phase 2");
+            Debug.Log("[Gemini] StreamGenerateAsync called");
+            
+            if (!IsConfigured)
+                throw new InvalidOperationException("Gemini provider is not configured. Please set API key.");
+
+            // Initialize HttpClient if needed
+            if (httpClient == null)
+            {
+                httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromMinutes(5);
+            }
+
+            parameters = parameters ?? new ModelParameters();
+            var model = string.IsNullOrEmpty(parameters.model) || parameters.model == "default" 
+                ? config.model 
+                : parameters.model;
+
+            // Use streamGenerateContent endpoint for streaming
+            string url = $"{DEFAULT_ENDPOINT}{model}:streamGenerateContent?key={config.apiKey}&alt=sse";
+            Debug.Log($"[Gemini] Streaming URL: {DEFAULT_ENDPOINT}{model}:streamGenerateContent?key=***&alt=sse");
+
+            string jsonBody = $@"{{
+                ""contents"": [{{
+                    ""parts"": [{{
+                        ""text"": {EscapeJson(prompt)}
+                    }}]
+                }}],
+                ""generationConfig"": {{
+                    ""temperature"": {parameters.temperature.ToString(CultureInfo.InvariantCulture)},
+                    ""maxOutputTokens"": {parameters.maxTokens},
+                    ""topP"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
+                }}
+            }}";
+
+            Debug.Log($"[Gemini] Streaming request body: {jsonBody.Substring(0, Math.Min(200, jsonBody.Length))}...");
+
+            var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
+            };
+
+            try
+            {
+                var response = await httpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead, // Important for streaming!
+                    cancellationToken).ConfigureAwait(false);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    Debug.LogError($"[Gemini] HTTP {response.StatusCode}: {errorBody}");
+                    
+                    onChunk?.Invoke(new StreamChunk
+                    {
+                        Type = StreamChunkType.Error,
+                        Delta = $"Gemini error ({response.StatusCode}): {errorBody}",
+                        IsFinal = true
+                    });
+                    return;
+                }
+
+                int chunkIndex = 0;
+
+                using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                using (var reader = new StreamReader(stream))
+                {
+                    while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+                    {
+                        string line = await reader.ReadLineAsync().ConfigureAwait(false);
+
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
+
+                        // SSE format: "data: {...}"
+                        if (line.StartsWith("data: "))
+                        {
+                            string jsonData = line.Substring(6).Trim();
+
+                            // Parse JSON chunk
+                            try
+                            {
+                                // Extract text from Gemini streaming response
+                                // Format: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+                                string text = ExtractStreamText(jsonData);
+                                
+                                if (!string.IsNullOrEmpty(text))
+                                {
+                                    onChunk?.Invoke(new StreamChunk
+                                    {
+                                        Type = StreamChunkType.Content,
+                                        Delta = text,
+                                        IsFinal = false,
+                                        Index = chunkIndex++
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogWarning($"[Gemini] Error parsing chunk: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    // Send done signal
+                    Debug.Log("[Gemini] Stream completed");
+                    onChunk?.Invoke(new StreamChunk
+                    {
+                        Type = StreamChunkType.Done,
+                        IsFinal = true,
+                        Index = chunkIndex++
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Gemini] Streaming error: {ex.Message}");
+                onChunk?.Invoke(new StreamChunk
+                {
+                    Type = StreamChunkType.Error,
+                    Delta = $"Gemini streaming error: {ex.Message}",
+                    IsFinal = true
+                });
+            }
+        }
+
+        private string ExtractStreamText(string jsonData)
+        {
+            // Extract text from streaming response chunk
+            int textStart = jsonData.IndexOf("\"text\":");
+            if (textStart == -1)
+                return null;
+
+            textStart = jsonData.IndexOf("\"", textStart + 7) + 1;
+            
+            int textEnd = textStart;
+            bool escaped = false;
+            
+            while (textEnd < jsonData.Length)
+            {
+                if (jsonData[textEnd] == '\\' && !escaped)
+                {
+                    escaped = true;
+                    textEnd++;
+                    continue;
+                }
+                
+                if (jsonData[textEnd] == '"' && !escaped)
+                {
+                    break;
+                }
+                
+                escaped = false;
+                textEnd++;
+            }
+            
+            if (textEnd >= jsonData.Length)
+                return null;
+            
+            string text = jsonData.Substring(textStart, textEnd - textStart)
+                .Replace("\\n", "\n")
+                .Replace("\\r", "\r")
+                .Replace("\\t", "\t")
+                .Replace("\\\"", "\"")
+                .Replace("\\\\", "\\");
+            
+            return text;
         }
 
         private string EscapeJson(string text)
