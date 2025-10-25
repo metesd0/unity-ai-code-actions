@@ -892,25 +892,37 @@ Response format:
                 // Process tool calls if in agent mode with real-time feedback
                 if (agentMode)
                 {
-                    // Add initial AI response
-                    conversation.AddAssistantMessage("🤖 Processing your request...\n");
-                    Repaint(); // Show immediately
+                    // Add initial AI response (queue UI update)
+                    QueueUIUpdate(() =>
+                    {
+                        conversation.AddAssistantMessage("🤖 Processing your request...\n");
+                        Repaint();
+                    });
                     
                     // Process tools with live progress updates
                     string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
                     {
-                        // Update UI in real-time as each tool executes
-                        conversation.UpdateLastAssistantMessage(progress);
-                        Repaint();
-                        autoScroll = true;
+                        // Update UI in real-time as each tool executes (queue it)
+                        QueueUIUpdate(() =>
+                        {
+                            conversation.UpdateLastAssistantMessage(progress);
+                            Repaint();
+                            autoScroll = true;
+                        });
                     }, currentDetailLevel.ToString());
                     
-                    // Replace with final result
-                    conversation.UpdateLastAssistantMessage(processedResponse);
+                    // Replace with final result (queue UI update)
+                    QueueUIUpdate(() =>
+                    {
+                        conversation.UpdateLastAssistantMessage(processedResponse);
+                    });
                 }
                 else
                 {
-                    conversation.AddAssistantMessage(response);
+                    QueueUIUpdate(() =>
+                    {
+                        conversation.AddAssistantMessage(response);
+                    });
                 }
                 
                 // Save conversation after each response
