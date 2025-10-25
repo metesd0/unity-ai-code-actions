@@ -339,8 +339,7 @@ namespace AICodeActions.Core
                 System.IO.File.WriteAllText(path, scriptContent);
                 Debug.Log($"[CreateScript] File written to: {path}");
                 
-                // DON'T call AssetDatabase.Refresh() here - it blocks UI and kills streaming!
-                // Unity's FileSystemWatcher will auto-import, and CheckAndAttach will refresh later
+                AssetDatabase.Refresh();
                 
                 // Wait for compilation using delayCall (more reliable than update)
                 double startTime = EditorApplication.timeSinceStartup;
@@ -375,8 +374,8 @@ namespace AICodeActions.Core
                         return;
                     }
                     
-                    // Unity's FileSystemWatcher auto-imports files - just wait for it
-                    // No need to block UI with ImportAsset or Refresh!
+                    // Force refresh
+                    AssetDatabase.Refresh();
                     
                     // Try to load script
                     var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);

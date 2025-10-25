@@ -314,8 +314,8 @@ namespace AICodeActions.Providers
                             // Example: ": OPENROUTER PROCESSING"
                             if (line.StartsWith(":"))
                             {
-                                Debug.Log($"[OpenRouter] SSE comment: {line}");
-                                continue; // Safely ignore per SSE spec
+                                // Silently ignore SSE comments per spec (no need to log)
+                                continue;
                             }
 
                             // OpenRouter uses same SSE format as OpenAI: "data: {...}"
@@ -326,7 +326,6 @@ namespace AICodeActions.Providers
                                 // Check for [DONE] signal
                                 if (jsonData == "[DONE]")
                                 {
-                                    Debug.Log("[OpenRouter] Stream completed (DONE signal)");
                                     onChunk?.Invoke(new StreamChunk
                                     {
                                         Type = StreamChunkType.Done,
@@ -375,7 +374,6 @@ namespace AICodeActions.Providers
                                     // Check for error finish_reason
                                     if (jsonData.Contains("\"finish_reason\":\"error\""))
                                     {
-                                        Debug.LogWarning("[OpenRouter] Stream terminated with error finish_reason");
                                         onChunk?.Invoke(new StreamChunk
                                         {
                                             Type = StreamChunkType.Done,
@@ -392,13 +390,10 @@ namespace AICodeActions.Providers
                             }
                         }
                     }
-
-                    Debug.Log($"[OpenRouter] Streaming finished. Total chunks: {chunkIndex}");
                 }
             }
             catch (OperationCanceledException)
             {
-                Debug.Log("[OpenRouter] Streaming cancelled");
                 throw;
             }
             catch (Exception ex)

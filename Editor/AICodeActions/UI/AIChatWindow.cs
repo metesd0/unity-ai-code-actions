@@ -820,12 +820,31 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                         if (currentProvider.SupportsStreaming && agentMode)
                         {
                             // STREAMING MODE - Real-time text updates! 🎉
-                            Debug.Log($"[AI Chat] Using STREAMING mode for {currentProvider.Name}");
-                            
                             var streamingResponse = new System.Text.StringBuilder();
                             conversation.AddAssistantMessage(""); // Add empty message to update
                             Repaint();
                             
+                            // ⚠️ CRITICAL: Setup callbacks BEFORE starting stream!
+                            streamManager.OnTextUpdate = (text) =>
+                            {
+                                streamingResponse.Append(text);
+                                conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
+                                Repaint();
+                                autoScroll = true;
+                            };
+                            
+                            streamManager.OnComplete = (finalText) =>
+                            {
+                                response = finalText;
+                            };
+                            
+                            streamManager.OnError = (error) =>
+                            {
+                                Debug.LogError($"[AI Chat] Streaming error: {error}");
+                                response = $"⚠️ Streaming error: {error}";
+                            };
+                            
+                            // Now start streaming with callbacks ready
                             await streamManager.StartStreamAsync(
                                 async (onChunk, token) =>
                                 {
@@ -839,27 +858,6 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                                 cancellationTokenSource.Token
                             );
                             
-                            // Setup callbacks
-                            streamManager.OnTextUpdate = (text) =>
-                            {
-                                streamingResponse.Append(text);
-                                conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
-                                Repaint();
-                                autoScroll = true;
-                            };
-                            
-                            streamManager.OnComplete = (finalText) =>
-                            {
-                                response = finalText;
-                                Debug.Log($"[AI Chat] Streaming complete: {response.Length} chars");
-                            };
-                            
-                            streamManager.OnError = (error) =>
-                            {
-                                Debug.LogError($"[AI Chat] Streaming error: {error}");
-                                response = $"⚠️ Streaming error: {error}";
-                            };
-                            
                             // Wait a bit for callbacks to finish
                             await System.Threading.Tasks.Task.Delay(100);
                             
@@ -871,7 +869,6 @@ NOW - Execute the user's request COMPLETELY and AUTONOMOUSLY! 🚀
                         else
                         {
                             // FALLBACK: Old non-streaming method
-                            Debug.Log($"[AI Chat] Using NON-STREAMING mode (provider: {currentProvider.Name}, streaming: {currentProvider.SupportsStreaming})");
                             response = await currentProvider.GenerateAsync(fullPrompt, parameters);
                         }
                         
