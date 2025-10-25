@@ -261,6 +261,11 @@ namespace AICodeActions.UI
                 ShowSettings();
             }
             
+            if (GUILayout.Button("Export", EditorStyles.toolbarButton, GUILayout.Width(60)))
+            {
+                ExportConversation();
+            }
+            
             if (GUILayout.Button("Clear", EditorStyles.toolbarButton, GUILayout.Width(50)))
             {
                 if (EditorUtility.DisplayDialog("Clear Chat", "Are you sure you want to clear the conversation?", "Yes", "No"))
@@ -336,6 +341,26 @@ namespace AICodeActions.UI
                 }
                 
                 EditorGUILayout.EndHorizontal();
+            }
+        }
+        
+        private void ExportConversation()
+        {
+            try
+            {
+                string defaultName = $"Chat_{DateTime.Now:yyyyMMdd_HHmm}.md";
+                string path = EditorUtility.SaveFilePanel("Export Chat", Application.dataPath, defaultName, "md");
+                if (string.IsNullOrEmpty(path)) return;
+
+                string md = conversation.ToMarkdown();
+                System.IO.File.WriteAllText(path, md, System.Text.Encoding.UTF8);
+                EditorUtility.RevealInFinder(path);
+                EditorUtility.DisplayDialog("Exported", "Chat exported successfully.", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[AI Chat] Export failed: {ex.Message}");
+                EditorUtility.DisplayDialog("Export failed", ex.Message, "OK");
             }
         }
         
