@@ -66,9 +66,14 @@ namespace AICodeActions.Providers
                 request.SetRequestHeader("Content-Type", "application/json");
 
                 Debug.Log("[Gemini] Sending request...");
+                
+                // Properly await UnityWebRequest without blocking main thread
+                var tcs = new TaskCompletionSource<bool>();
                 var operation = request.SendWebRequest();
-                while (!operation.isDone)
-                    await Task.Yield();
+                
+                operation.completed += _ => tcs.TrySetResult(true);
+                
+                await tcs.Task.ConfigureAwait(false);
 
                 Debug.Log($"[Gemini] Request completed. Result: {request.result}");
                 Debug.Log($"[Gemini] Response Code: {request.responseCode}");
