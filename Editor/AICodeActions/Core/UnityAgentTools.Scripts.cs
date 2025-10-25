@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UnityEditor;
+using AICodeActions.Core;
 using UnityEngine;
 
 namespace AICodeActions.Core
