@@ -738,6 +738,7 @@ Principles:
 - After critical actions (create/attach/modify), verify and fix or report.
 - Ask one short clarification only if ambiguity would change the outcome; otherwise choose sensible defaults.
 - Scripts must compile: include usings, correct class/file names, no placeholders.
+- **SCRIPT COMPILATION RULE**: After create_and_attach_script, NEVER call set_component_property on that script's component in the same tool chain. Scripts need compilation time. Inform user the script is ready and properties can be set after compilation if needed.
 - Be safe: avoid destructive changes; save or modify assets only when necessary.
 
 Response format:
