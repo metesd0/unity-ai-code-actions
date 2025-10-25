@@ -912,9 +912,9 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                     maxTokens = agentMode ? 6144 : 2048, // Boosted for complex tasks
                     
                     // OpenRouter Reasoning Tokens (for supported models)
-                    reasoningEffort = currentReasoningLevel == ReasoningLevel.Off ? null :
-                                      currentReasoningLevel == ReasoningLevel.Low ? "low" :
-                                      currentReasoningLevel == ReasoningLevel.Medium ? "medium" : "high",
+                    // Note: OpenRouter allows ONLY ONE of effort or max_tokens, not both
+                    reasoningEffort = (currentReasoningLevel == ReasoningLevel.Low || currentReasoningLevel == ReasoningLevel.Medium) ?
+                                      (currentReasoningLevel == ReasoningLevel.Low ? "low" : "medium") : null,
                     reasoningMaxTokens = currentReasoningLevel == ReasoningLevel.High ? 2000 : (int?)null,
                     reasoningExclude = !showThinking // Hide reasoning if thinking toggle is off
                 };
@@ -937,7 +937,7 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                             var streamingResponse = new System.Text.StringBuilder();
                             var reasoningResponse = new System.Text.StringBuilder(); // For reasoning tokens
                             conversation.AddAssistantMessage(""); // Add empty message to update
-                            Repaint();
+                            // Note: Repaint() will be called in callbacks via QueueUIUpdate
                             
                             // ⚠️ CRITICAL: Setup callbacks BEFORE starting stream!
                             // All UI updates are queued to prevent "Hold on..." popup
@@ -1039,7 +1039,7 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                             if (retryCount < maxRetries)
                             {
                                 statusMessage = $"⚠️ Empty response, retrying ({retryCount}/{maxRetries})...";
-                                Repaint();
+                                // Note: Repaint on background thread causes errors, status will be visible on next UI update
                                 await System.Threading.Tasks.Task.Delay(1000).ConfigureAwait(false); // Wait 1 second
                                 continue;
                             }
@@ -1058,7 +1058,7 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                         if (retryCount < maxRetries)
                         {
                             statusMessage = $"⚠️ Error, retrying ({retryCount}/{maxRetries})...";
-                            Repaint();
+                            // Note: Repaint on background thread causes errors, status will be visible on next UI update
                             await System.Threading.Tasks.Task.Delay(1000).ConfigureAwait(false);
                             continue;
                         }
@@ -1218,8 +1218,8 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                     });
                 }
                 
-                // Save conversation after each response
-                SaveConversation();
+                // Save conversation after each response (queue to main thread)
+                QueueUIUpdate(() => SaveConversation());
                 autoScroll = true; // Enable auto-scroll for new messages
                 statusMessage = "Ready";
             }
@@ -1228,7 +1228,7 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                 isStreamActive = false; // Stop update loop
                 statusMessage = "Request cancelled";
                 conversation.AddSystemMessage("🛑 Request cancelled by user");
-                SaveConversation();
+                QueueUIUpdate(() => SaveConversation()); // Queue to main thread
                 Debug.Log("[AI Chat] Request cancelled by user");
             }
             catch (Exception e)
@@ -1236,7 +1236,7 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                 isStreamActive = false; // Stop update loop
                 statusMessage = $"Error: {e.Message}";
                 conversation.AddSystemMessage($"❌ Error: {e.Message}");
-                SaveConversation();
+                QueueUIUpdate(() => SaveConversation()); // Queue to main thread
                 Debug.LogError($"[AI Chat] {e}");
             }
             finally
