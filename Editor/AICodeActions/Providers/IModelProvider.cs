@@ -45,6 +45,11 @@ namespace AICodeActions.Providers
         public int maxTokens = 2048;
         public float topP = 1.0f;
         public string model = "default";
+        
+        // OpenRouter Reasoning Tokens support
+        public string reasoningEffort = null; // "low", "medium", "high", or null to disable
+        public int? reasoningMaxTokens = null; // For Anthropic-style models
+        public bool reasoningExclude = false; // Hide reasoning from response
     }
 
     [Serializable]

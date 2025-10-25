@@ -134,6 +134,32 @@ namespace AICodeActions.Providers
             body.Append($"\"max_tokens\":{parameters.maxTokens},");
             body.Append($"\"temperature\":{tempStr},");
             body.Append($"\"top_p\":{topPStr}");
+            
+            // Add OpenRouter Reasoning Tokens support
+            if (!string.IsNullOrEmpty(parameters.reasoningEffort) || parameters.reasoningMaxTokens.HasValue)
+            {
+                body.Append(",\"reasoning\":{");
+                
+                if (!string.IsNullOrEmpty(parameters.reasoningEffort))
+                {
+                    body.Append($"\"effort\":\"{parameters.reasoningEffort}\"");
+                }
+                
+                if (parameters.reasoningMaxTokens.HasValue)
+                {
+                    if (!string.IsNullOrEmpty(parameters.reasoningEffort))
+                        body.Append(",");
+                    body.Append($"\"max_tokens\":{parameters.reasoningMaxTokens.Value}");
+                }
+                
+                if (parameters.reasoningExclude)
+                {
+                    body.Append(",\"exclude\":true");
+                }
+                
+                body.Append("}");
+            }
+            
             body.Append("}");
             
             return body.ToString();
@@ -370,6 +396,14 @@ namespace AICodeActions.Providers
                                     break;
                                 }
 
+                                // Extract reasoning_details first (OpenRouter reasoning tokens)
+                                var reasoningChunk = ExtractReasoningDetails(jsonData);
+                                if (reasoningChunk != null)
+                                {
+                                    reasoningChunk.Index = chunkIndex++;
+                                    onChunk?.Invoke(reasoningChunk);
+                                }
+                                
                                 // Extract content from delta
                                 string content = ExtractStreamContent(jsonData);
 
@@ -429,9 +463,98 @@ namespace AICodeActions.Providers
             sb.Append($"\"max_tokens\":{parameters.maxTokens},");
             sb.Append($"\"top_p\":{parameters.topP.ToString(CultureInfo.InvariantCulture)},");
             sb.Append("\"stream\":true");
+            
+            // Add OpenRouter Reasoning Tokens support
+            if (!string.IsNullOrEmpty(parameters.reasoningEffort) || parameters.reasoningMaxTokens.HasValue)
+            {
+                sb.Append(",\"reasoning\":{");
+                
+                if (!string.IsNullOrEmpty(parameters.reasoningEffort))
+                {
+                    sb.Append($"\"effort\":\"{parameters.reasoningEffort}\"");
+                }
+                
+                if (parameters.reasoningMaxTokens.HasValue)
+                {
+                    if (!string.IsNullOrEmpty(parameters.reasoningEffort))
+                        sb.Append(",");
+                    sb.Append($"\"max_tokens\":{parameters.reasoningMaxTokens.Value}");
+                }
+                
+                if (parameters.reasoningExclude)
+                {
+                    sb.Append(",\"exclude\":true");
+                }
+                
+                sb.Append("}");
+            }
+            
             sb.Append("}");
             
             return sb.ToString();
+        }
+        
+        /// <summary>
+        /// Extract reasoning_details from OpenRouter streaming response
+        /// </summary>
+        private StreamChunk ExtractReasoningDetails(string jsonData)
+        {
+            // Look for reasoning_details array in delta
+            // Format: "delta":{"reasoning_details":[{"type":"reasoning.text","text":"...","id":"reasoning-1"}]}
+            
+            int reasoningIndex = jsonData.IndexOf("\"reasoning_details\"");
+            if (reasoningIndex == -1)
+                return null;
+            
+            // Find the text field within reasoning_details
+            int textIndex = jsonData.IndexOf("\"text\":\"", reasoningIndex);
+            if (textIndex == -1)
+                return null;
+            
+            int startQuote = textIndex + 8; // Length of "text":"
+            int endQuote = startQuote;
+            
+            // Find the closing quote, handling escaped quotes
+            while (endQuote < jsonData.Length)
+            {
+                if (jsonData[endQuote] == '\"' && (endQuote == startQuote || jsonData[endQuote - 1] != '\\'))
+                    break;
+                endQuote++;
+            }
+            
+            if (endQuote >= jsonData.Length)
+                return null;
+            
+            string reasoningText = jsonData.Substring(startQuote, endQuote - startQuote);
+            
+            // Unescape JSON characters
+            reasoningText = reasoningText
+                .Replace("\\n", "\n")
+                .Replace("\\r", "\r")
+                .Replace("\\t", "\t")
+                .Replace("\\\"", "\"")
+                .Replace("\\\\", "\\");
+            
+            // Extract reasoning ID if present
+            string reasoningId = null;
+            int idIndex = jsonData.IndexOf("\"id\":\"", reasoningIndex);
+            if (idIndex != -1)
+            {
+                int idStart = idIndex + 6;
+                int idEnd = jsonData.IndexOf("\"", idStart);
+                if (idEnd != -1)
+                {
+                    reasoningId = jsonData.Substring(idStart, idEnd - idStart);
+                }
+            }
+            
+            return new StreamChunk
+            {
+                Type = StreamChunkType.ReasoningDelta,
+                ReasoningText = reasoningText,
+                ReasoningId = reasoningId,
+                Delta = reasoningText // Also set Delta for compatibility
+            };
         }
         
         private string ExtractStreamContent(string jsonData)

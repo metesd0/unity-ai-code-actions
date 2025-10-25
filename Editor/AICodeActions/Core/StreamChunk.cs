@@ -34,6 +34,16 @@ namespace AICodeActions.Core
         public Dictionary<string, string> ToolParams { get; set; }
         
         /// <summary>
+        /// Reasoning text if this is a reasoning chunk
+        /// </summary>
+        public string ReasoningText { get; set; }
+        
+        /// <summary>
+        /// Reasoning ID for tracking reasoning blocks
+        /// </summary>
+        public string ReasoningId { get; set; }
+        
+        /// <summary>
         /// Timestamp when chunk was received
         /// </summary>
         public DateTime ReceivedAt { get; set; }
@@ -101,6 +111,21 @@ namespace AICodeActions.Core
         /// <summary>
         /// Metadata or system message
         /// </summary>
-        Metadata
+        Metadata,
+        
+        /// <summary>
+        /// Reasoning/thinking text from model (OpenRouter reasoning tokens)
+        /// </summary>
+        ReasoningDelta,
+        
+        /// <summary>
+        /// Start of reasoning block
+        /// </summary>
+        ReasoningStart,
+        
+        /// <summary>
+        /// End of reasoning block
+        /// </summary>
+        ReasoningEnd
     }
 }
