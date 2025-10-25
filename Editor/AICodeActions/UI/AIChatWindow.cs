@@ -680,7 +680,12 @@ Principles:
 - Be safe: avoid destructive changes; save or modify assets only when necessary.
 
 Response format:
-- If tools are needed: output ordered [TOOL:...] blocks with required parameters, then a short summary of what changed.
+- If tools are needed: output ordered [TOOL:...] blocks with required parameters.
+- **CRITICAL**: After tool execution, ALWAYS analyze the results and provide a clear summary to the user:
+  * For get_scene_info / get_project_stats: List key findings (object count, issues, stats)
+  * For find_gameobjects: Show which objects were found and their properties
+  * For read_script: Explain what the script does or note any issues
+  * For creation/modification: Confirm what was created/changed and next steps
 - If tools are not needed: answer directly.
 - Use the user's language when possible.";
                     
@@ -907,7 +912,7 @@ Response format:
             
             string lowerResponse = rawResponse.ToLower();
             
-            // SMART CHECK: If agent is presenting options/asking questions, don't auto-continue
+            // SMART CHECK: If agent is asking questions or presenting options, don't auto-continue
             if (rawResponse.TrimEnd().EndsWith("?") || 
                 lowerResponse.Contains("seçenek") || 
                 lowerResponse.Contains("options") ||
@@ -918,6 +923,35 @@ Response format:
             {
                 Debug.Log("[Auto-Continue] Agent is asking questions - no auto-continue needed");
                 return false;
+            }
+            
+            // Count tool calls
+            int toolOpenCount = 0;
+            int index = 0;
+            while ((index = rawResponse.IndexOf("[TOOL:", index)) != -1)
+            {
+                toolOpenCount++;
+                index += 6;
+            }
+            
+            // SMART CHECK: If ONLY get_* or find_* tools (info gathering), don't auto-continue
+            if (toolOpenCount > 0 && toolOpenCount <= 3)
+            {
+                bool onlyInfoTools = true;
+                string[] infoTools = { "get_scene_info", "get_project_stats", "get_gameobject_info", 
+                                       "find_gameobjects", "read_script", "list_scripts" };
+                
+                foreach (var infoTool in infoTools)
+                {
+                    rawResponse = rawResponse.Replace($"[TOOL:{infoTool}]", "");
+                }
+                
+                // If no tools remain after removing info tools, then only info tools were used
+                if (!rawResponse.Contains("[TOOL:"))
+                {
+                    Debug.Log("[Auto-Continue] Only info-gathering tools used - no auto-continue");
+                    return false;
+                }
             }
             
             // 1. Response ends abruptly (no closing marks) - BUT not if it ends with "?"
