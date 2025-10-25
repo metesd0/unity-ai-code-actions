@@ -1038,9 +1038,15 @@ Multiple tools can be called in sequence to complete complex tasks.
                     const int maxReactLoops = 5; // Safety limit
                     string accumulatedResponse = response + "\n\n" + finalResponse;
                     
-                    while (reactLoopCount < maxReactLoops && HasToolCalls(finalResponse))
+                    // Loop if tools were executed (finalResponse contains tool results)
+                    bool toolsWereExecuted = !string.IsNullOrWhiteSpace(finalResponse) && finalResponse.Contains("Completed");
+                    
+                    Debug.Log($"[ReAct Loop] Initial check - toolsWereExecuted: {toolsWereExecuted}, finalResponse length: {finalResponse?.Length ?? 0}");
+                    
+                    while (reactLoopCount < maxReactLoops && toolsWereExecuted)
                     {
                         reactLoopCount++;
+                        Debug.Log($"[ReAct Loop] Iteration {reactLoopCount} started");
                         
                         // Check if cancelled
                         if (cancellationTokenSource.Token.IsCancellationRequested)
@@ -1085,8 +1091,11 @@ Multiple tools can be called in sequence to complete complex tasks.
                         
                         if (string.IsNullOrWhiteSpace(continuationResponse))
                         {
+                            Debug.Log($"[ReAct Loop] Continuation response empty, breaking loop");
                             break; // No more continuation
                         }
+                        
+                        Debug.Log($"[ReAct Loop] Continuation response received ({continuationResponse.Length} chars), checking for tools...");
                         
                         // Accumulate the conversation
                         accumulatedResponse += "\n\n" + continuationResponse;
@@ -1099,8 +1108,12 @@ Multiple tools can be called in sequence to complete complex tasks.
                         });
                         
                         // Execute new tools if any
-                        if (HasToolCalls(continuationResponse))
+                        bool hasTools = HasToolCalls(continuationResponse);
+                        Debug.Log($"[ReAct Loop] HasToolCalls: {hasTools}");
+                        
+                        if (hasTools)
                         {
+                            Debug.Log($"[ReAct Loop] Executing new tools from continuation...");
                             var contTcs = new System.Threading.Tasks.TaskCompletionSource<string>();
                             
                             UnityEditor.EditorApplication.delayCall += () =>
@@ -1128,9 +1141,12 @@ Multiple tools can be called in sequence to complete complex tasks.
                         else
                         {
                             // No more tools, task is complete
+                            Debug.Log($"[ReAct Loop] No more tools found, task complete");
                             break;
                         }
                     }
+                    
+                    Debug.Log($"[ReAct Loop] Exited after {reactLoopCount} iterations");
                     
                     // Replace with final accumulated result
                     QueueUIUpdate(() =>
