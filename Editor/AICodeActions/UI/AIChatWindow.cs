@@ -60,6 +60,16 @@ namespace AICodeActions.UI
         private bool autoScroll = true;
         private float lastScrollY = 0f;
         
+        // Live Thinking Footer
+        private string liveThinkingText = "";
+        private float thinkingAlpha = 0f;
+        private float thinkingFadeTimer = 0f;
+        private int thinkingTypingIndex = 0;
+        private string fullThinkingBuffer = "";
+        private const float THINKING_FADE_DURATION = 0.5f;
+        private const float THINKING_VISIBLE_TIME = 2.0f;
+        private const float THINKING_TYPING_SPEED = 0.02f; // seconds per character
+        
         // Cancellation support
         private System.Threading.CancellationTokenSource cancellationTokenSource;
         
@@ -141,6 +151,59 @@ namespace AICodeActions.UI
             if (isStreamActive && streamManager != null)
             {
                 streamManager.Update();
+            }
+            
+            // Animate thinking footer
+            UpdateThinkingAnimation();
+        }
+        
+        private void UpdateThinkingAnimation()
+        {
+            if (string.IsNullOrEmpty(fullThinkingBuffer))
+            {
+                // Fade out if no thinking text
+                if (thinkingAlpha > 0)
+                {
+                    thinkingAlpha -= Time.deltaTime / THINKING_FADE_DURATION;
+                    if (thinkingAlpha <= 0)
+                    {
+                        thinkingAlpha = 0;
+                        liveThinkingText = "";
+                        thinkingTypingIndex = 0;
+                    }
+                    Repaint();
+                }
+                return;
+            }
+            
+            // Typing effect - gradually reveal characters
+            if (thinkingTypingIndex < fullThinkingBuffer.Length)
+            {
+                thinkingFadeTimer += Time.deltaTime;
+                
+                if (thinkingFadeTimer >= THINKING_TYPING_SPEED)
+                {
+                    thinkingFadeTimer = 0;
+                    thinkingTypingIndex++;
+                    liveThinkingText = fullThinkingBuffer.Substring(0, thinkingTypingIndex);
+                    
+                    // Fade in while typing
+                    thinkingAlpha = Mathf.Min(1f, thinkingAlpha + Time.deltaTime * 2);
+                    Repaint();
+                }
+            }
+            else
+            {
+                // Fully visible - maintain for THINKING_VISIBLE_TIME
+                thinkingAlpha = 1f;
+                thinkingFadeTimer += Time.deltaTime;
+                
+                if (thinkingFadeTimer >= THINKING_VISIBLE_TIME)
+                {
+                    // Start fade out
+                    fullThinkingBuffer = "";
+                    thinkingFadeTimer = 0;
+                }
             }
         }
         
@@ -251,6 +314,57 @@ namespace AICodeActions.UI
             EditorGUILayout.Space(5);
             
             DrawStatusBar();
+            
+            // Draw thinking footer (floating at bottom)
+            if (showThinking && thinkingAlpha > 0 && !string.IsNullOrEmpty(liveThinkingText))
+            {
+                DrawThinkingFooter();
+            }
+        }
+        
+        private void DrawThinkingFooter()
+        {
+            // Calculate position at bottom of window, above status bar
+            float footerHeight = 40f;
+            Rect footerRect = new Rect(0, position.height - footerHeight - 25, position.width, footerHeight);
+            
+            // Save original GUI color
+            Color originalColor = GUI.color;
+            Color originalBgColor = GUI.backgroundColor;
+            
+            // Apply fade alpha
+            GUI.color = new Color(1f, 1f, 1f, thinkingAlpha * 0.6f); // Soluk efekt
+            GUI.backgroundColor = new Color(0.2f, 0.2f, 0.3f, thinkingAlpha * 0.8f);
+            
+            // Draw background box
+            GUI.Box(footerRect, "", EditorStyles.helpBox);
+            
+            // Draw thinking icon and text
+            Rect contentRect = new Rect(footerRect.x + 10, footerRect.y + 10, footerRect.width - 20, footerRect.height - 20);
+            
+            // Apply alpha to text color
+            Color textColor = EditorGUIUtility.isProSkin ? 
+                new Color(0.8f, 0.8f, 1f, thinkingAlpha) : 
+                new Color(0.2f, 0.2f, 0.4f, thinkingAlpha);
+            
+            GUIStyle thinkingStyle = new GUIStyle(EditorStyles.label);
+            thinkingStyle.normal.textColor = textColor;
+            thinkingStyle.fontSize = 11;
+            thinkingStyle.fontStyle = FontStyle.Italic;
+            thinkingStyle.wordWrap = true;
+            
+            // Draw thinking text with icon
+            string displayText = $"💭 {liveThinkingText}";
+            if (thinkingTypingIndex < fullThinkingBuffer.Length)
+            {
+                displayText += "▌"; // Typing cursor
+            }
+            
+            GUI.Label(contentRect, displayText, thinkingStyle);
+            
+            // Restore original colors
+            GUI.color = originalColor;
+            GUI.backgroundColor = originalBgColor;
         }
         
         private void InitializeStyles()
@@ -878,11 +992,25 @@ Multiple tools can be called in sequence to complete complex tasks.
                                     
                                     QueueUIUpdate(() =>
                                     {
-                                        // Format reasoning as a special block
-                                        string formattedReasoning = $"💭 **Model Thinking:**\n```\n{reasoningResponse}\n```\n\n";
-                                        string fullMessage = formattedReasoning + streamingResponse.ToString();
-                                        conversation.UpdateLastAssistantMessage(fullMessage);
-                                        autoScroll = true;
+                                        // Update live thinking footer (flowing text at bottom)
+                                        string cleanedThinking = reasoningResponse.ToString()
+                                            .Replace("\n", " ")
+                                            .Replace("\r", "")
+                                            .Trim();
+                                        
+                                        // Limit to last 200 chars for better readability
+                                        if (cleanedThinking.Length > 200)
+                                        {
+                                            cleanedThinking = "..." + cleanedThinking.Substring(cleanedThinking.Length - 197);
+                                        }
+                                        
+                                        // Update thinking footer
+                                        fullThinkingBuffer = cleanedThinking;
+                                        thinkingTypingIndex = 0;
+                                        thinkingFadeTimer = 0;
+                                        
+                                        // Don't save reasoning to message - it's only in footer now
+                                        // conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
                                         Repaint();
                                     });
                                 }
@@ -915,6 +1043,10 @@ Multiple tools can be called in sequence to complete complex tasks.
                                 {
                                     response = finalText;
                                     isStreamActive = false; // Stop update loop
+                                    
+                                    // Clear thinking footer when response is complete
+                                    fullThinkingBuffer = "";
+                                    thinkingFadeTimer = 0;
                                 });
                             };
                             
@@ -925,6 +1057,10 @@ Multiple tools can be called in sequence to complete complex tasks.
                                 {
                                     response = $"⚠️ Streaming error: {error}";
                                     isStreamActive = false; // Stop update loop
+                                    
+                                    // Clear thinking footer on error
+                                    fullThinkingBuffer = "";
+                                    thinkingFadeTimer = 0;
                                 });
                             };
                             
