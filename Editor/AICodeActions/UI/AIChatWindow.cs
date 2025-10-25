@@ -393,6 +393,36 @@ namespace AICodeActions.UI
                 
                 GUILayout.Space(10);
                 
+                // Reasoning Level (OpenRouter reasoning tokens)
+                GUILayout.Label("🧠", EditorStyles.miniLabel, GUILayout.Width(20));
+                
+                GUI.backgroundColor = currentReasoningLevel == ReasoningLevel.Off ? new Color(0.5f, 0.5f, 0.5f) : Color.white;
+                if (GUILayout.Button("Off", EditorStyles.toolbarButton, GUILayout.Width(35)))
+                {
+                    currentReasoningLevel = ReasoningLevel.Off;
+                }
+                
+                GUI.backgroundColor = currentReasoningLevel == ReasoningLevel.Low ? new Color(0.3f, 0.7f, 1f) : Color.white;
+                if (GUILayout.Button("Low", EditorStyles.toolbarButton, GUILayout.Width(40)))
+                {
+                    currentReasoningLevel = ReasoningLevel.Low;
+                }
+                
+                GUI.backgroundColor = currentReasoningLevel == ReasoningLevel.Medium ? new Color(0.3f, 0.7f, 1f) : Color.white;
+                if (GUILayout.Button("Med", EditorStyles.toolbarButton, GUILayout.Width(40)))
+                {
+                    currentReasoningLevel = ReasoningLevel.Medium;
+                }
+                
+                GUI.backgroundColor = currentReasoningLevel == ReasoningLevel.High ? new Color(0.3f, 0.7f, 1f) : Color.white;
+                if (GUILayout.Button("High", EditorStyles.toolbarButton, GUILayout.Width(45)))
+                {
+                    currentReasoningLevel = ReasoningLevel.High;
+                }
+                GUI.backgroundColor = Color.white;
+                
+                GUILayout.Space(10);
+                
                 // Filter toggle
                 GUI.backgroundColor = showOnlyErrors ? new Color(1f, 0.5f, 0.3f) : Color.white;
                 bool newShowOnlyErrors = GUILayout.Toggle(showOnlyErrors, "❌ Errors Only", EditorStyles.toolbarButton, GUILayout.Width(90));
@@ -905,18 +935,48 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                         {
                             // STREAMING MODE - Real-time text updates! 🎉
                             var streamingResponse = new System.Text.StringBuilder();
+                            var reasoningResponse = new System.Text.StringBuilder(); // For reasoning tokens
                             conversation.AddAssistantMessage(""); // Add empty message to update
                             Repaint();
                             
                             // ⚠️ CRITICAL: Setup callbacks BEFORE starting stream!
                             // All UI updates are queued to prevent "Hold on..." popup
+                            
+                            // Handle reasoning tokens (OpenRouter reasoning)
+                            streamManager.OnReasoningUpdate = (reasoningText) =>
+                            {
+                                if (showThinking && !string.IsNullOrEmpty(reasoningText))
+                                {
+                                    reasoningResponse.Append(reasoningText);
+                                    
+                                    QueueUIUpdate(() =>
+                                    {
+                                        // Format reasoning as a special block
+                                        string formattedReasoning = $"💭 **Model Thinking:**\n```\n{reasoningResponse}\n```\n\n";
+                                        string fullMessage = formattedReasoning + streamingResponse.ToString();
+                                        conversation.UpdateLastAssistantMessage(fullMessage);
+                                        autoScroll = true;
+                                        Repaint();
+                                    });
+                                }
+                            };
+                            
                             streamManager.OnTextUpdate = (text) =>
                             {
                                 streamingResponse.Append(text);
                                 // Queue UI update instead of direct call (prevents blocking)
                                 QueueUIUpdate(() =>
                                 {
-                                    conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
+                                    string fullMessage = streamingResponse.ToString();
+                                    
+                                    // Prepend reasoning if available
+                                    if (showThinking && reasoningResponse.Length > 0)
+                                    {
+                                        string formattedReasoning = $"💭 **Model Thinking:**\n```\n{reasoningResponse}\n```\n\n";
+                                        fullMessage = formattedReasoning + fullMessage;
+                                    }
+                                    
+                                    conversation.UpdateLastAssistantMessage(fullMessage);
                                     autoScroll = true;
                                     Repaint();
                                 });
