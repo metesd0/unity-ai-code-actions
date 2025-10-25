@@ -1035,10 +1035,108 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                     // Wait for tool processing to complete on main thread
                     string finalResponse = await tcs.Task.ConfigureAwait(false);
                     
-                    // Replace with final result (queue UI update)
+                    // 🔄 ReAct Loop: Continue until task is complete
+                    int reactLoopCount = 0;
+                    const int maxReactLoops = 5; // Safety limit
+                    string accumulatedResponse = response + "\n\n" + finalResponse;
+                    
+                    while (reactLoopCount < maxReactLoops && HasToolCalls(finalResponse))
+                    {
+                        reactLoopCount++;
+                        
+                        // Check if cancelled
+                        if (cancellationTokenSource.Token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        
+                        // 👁️ OBSERVATION: Inject tool results back to AI
+                        string observation = $"\n\n[OBSERVATION]\nTool execution completed. Results:\n{ExtractToolResults(finalResponse)}\n\nBased on these results, what's your next action? If the task is complete, provide a final summary.";
+                        
+                        // Create continuation prompt
+                        string continuationPrompt = $"{systemPrompt}\n\n{toolsInfo}\n\nPrevious conversation:\nUser: {message}\nAssistant: {accumulatedResponse}\n\n{observation}\n\nAssistant:";
+                        
+                        // Get AI's next step
+                        string continuationResponse = "";
+                        if (currentProvider.SupportsStreaming && agentMode)
+                        {
+                            var contStreamingResponse = new System.Text.StringBuilder();
+                            
+                            // Stream continuation
+                            await streamManager.StartStreamAsync(
+                                async (onChunk, token) =>
+                                {
+                                    await currentProvider.StreamGenerateAsync(
+                                        continuationPrompt,
+                                        parameters,
+                                        onChunk,
+                                        token
+                                    ).ConfigureAwait(false);
+                                },
+                                cancellationTokenSource.Token
+                            ).ConfigureAwait(false);
+                            
+                            await System.Threading.Tasks.Task.Delay(100).ConfigureAwait(false);
+                            continuationResponse = streamManager.GetBufferedText();
+                        }
+                        else
+                        {
+                            continuationResponse = await currentProvider.GenerateAsync(continuationPrompt, parameters).ConfigureAwait(false);
+                        }
+                        
+                        if (string.IsNullOrWhiteSpace(continuationResponse))
+                        {
+                            break; // No more continuation
+                        }
+                        
+                        // Accumulate the conversation
+                        accumulatedResponse += "\n\n" + continuationResponse;
+                        
+                        // Update UI with accumulated response
+                        QueueUIUpdate(() =>
+                        {
+                            conversation.UpdateLastAssistantMessage(accumulatedResponse);
+                            Repaint();
+                        });
+                        
+                        // Execute new tools if any
+                        if (HasToolCalls(continuationResponse))
+                        {
+                            var contTcs = new System.Threading.Tasks.TaskCompletionSource<string>();
+                            
+                            UnityEditor.EditorApplication.delayCall += () =>
+                            {
+                                try
+                                {
+                                    string contProcessed = agentTools.ProcessToolCallsWithProgress(continuationResponse, (progress) =>
+                                    {
+                                        conversation.UpdateLastAssistantMessage(accumulatedResponse + "\n\n" + progress);
+                                        Repaint();
+                                        autoScroll = true;
+                                    }, currentDetailLevel.ToString());
+                                    
+                                    contTcs.SetResult(contProcessed);
+                                }
+                                catch (System.Exception ex)
+                                {
+                                    contTcs.SetException(ex);
+                                }
+                            };
+                            
+                            finalResponse = await contTcs.Task.ConfigureAwait(false);
+                            accumulatedResponse += "\n\n" + finalResponse;
+                        }
+                        else
+                        {
+                            // No more tools, task is complete
+                            break;
+                        }
+                    }
+                    
+                    // Replace with final accumulated result
                     QueueUIUpdate(() =>
                     {
-                        conversation.UpdateLastAssistantMessage(finalResponse);
+                        conversation.UpdateLastAssistantMessage(accumulatedResponse);
                     });
                 }
                 else
@@ -1083,6 +1181,43 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                         Repaint();
                 };
             }
+        }
+        
+        /// <summary>
+        /// Check if response contains tool calls
+        /// </summary>
+        private bool HasToolCalls(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+                return false;
+            
+            return response.Contains("[TOOL:") && response.Contains("[/TOOL]");
+        }
+        
+        /// <summary>
+        /// Extract tool execution results from processed response
+        /// </summary>
+        private string ExtractToolResults(string processedResponse)
+        {
+            // Look for tool execution results marked with ✅ or ❌
+            var lines = processedResponse.Split('\n');
+            var resultLines = new System.Collections.Generic.List<string>();
+            
+            foreach (var line in lines)
+            {
+                if (line.Contains("✅") || line.Contains("❌") || line.Contains("tool(s)"))
+                {
+                    resultLines.Add(line.Trim());
+                }
+            }
+            
+            if (resultLines.Count > 0)
+            {
+                return string.Join("\n", resultLines);
+            }
+            
+            // Fallback: return a summary
+            return "Tools executed successfully. Check detailed log above.";
         }
         
         private void CancelCurrentRequest()
