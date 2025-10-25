@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -57,24 +58,24 @@ namespace AICodeActions.Core
                 (p) => UnityAgentTools.CreatePrimitive(
                     p["primitive_type"],
                     p.ContainsKey("name") ? p["name"] : null,
-                    p.ContainsKey("x") ? float.Parse(p["x"]) : 0,
-                    p.ContainsKey("y") ? float.Parse(p["y"]) : 0,
-                    p.ContainsKey("z") ? float.Parse(p["z"]) : 0));
+                    p.ContainsKey("x") ? float.Parse(p["x"], CultureInfo.InvariantCulture) : 0,
+                    p.ContainsKey("y") ? float.Parse(p["y"], CultureInfo.InvariantCulture) : 0,
+                    p.ContainsKey("z") ? float.Parse(p["z"], CultureInfo.InvariantCulture) : 0));
             
             RegisterTool("set_position",
                 "Set GameObject position in world space",
                 new string[] { "gameobject_name", "x", "y", "z" },
-                (p) => UnityAgentTools.SetPosition(p["gameobject_name"], float.Parse(p["x"]), float.Parse(p["y"]), float.Parse(p["z"])));
+                (p) => UnityAgentTools.SetPosition(p["gameobject_name"], float.Parse(p["x"], CultureInfo.InvariantCulture), float.Parse(p["y"], CultureInfo.InvariantCulture), float.Parse(p["z"], CultureInfo.InvariantCulture)));
             
             RegisterTool("set_rotation",
                 "Set GameObject rotation using Euler angles (degrees)",
                 new string[] { "gameobject_name", "x", "y", "z" },
-                (p) => UnityAgentTools.SetRotation(p["gameobject_name"], float.Parse(p["x"]), float.Parse(p["y"]), float.Parse(p["z"])));
+                (p) => UnityAgentTools.SetRotation(p["gameobject_name"], float.Parse(p["x"], CultureInfo.InvariantCulture), float.Parse(p["y"], CultureInfo.InvariantCulture), float.Parse(p["z"], CultureInfo.InvariantCulture)));
             
             RegisterTool("set_scale",
                 "Set GameObject scale",
                 new string[] { "gameobject_name", "x", "y", "z" },
-                (p) => UnityAgentTools.SetScale(p["gameobject_name"], float.Parse(p["x"]), float.Parse(p["y"]), float.Parse(p["z"])));
+                (p) => UnityAgentTools.SetScale(p["gameobject_name"], float.Parse(p["x"], CultureInfo.InvariantCulture), float.Parse(p["y"], CultureInfo.InvariantCulture), float.Parse(p["z"], CultureInfo.InvariantCulture)));
             
             RegisterTool("delete_gameobject",
                 "Delete a GameObject from the scene (supports undo)",
@@ -226,14 +227,14 @@ namespace AICodeActions.Core
                     p["name"],
                     p["light_type"],
                     p.ContainsKey("color") ? p["color"] : "white",
-                    p.ContainsKey("intensity") ? float.Parse(p["intensity"]) : 1.0f));
+                    p.ContainsKey("intensity") ? float.Parse(p["intensity"], CultureInfo.InvariantCulture) : 1.0f));
             
             RegisterTool("create_camera",
                 "Create a camera GameObject with optional field of view",
                 new string[] { "name", "field_of_view" },
                 (p) => UnityAgentTools.CreateCamera(
                     p["name"],
-                    p.ContainsKey("field_of_view") ? float.Parse(p["field_of_view"]) : 60f));
+                    p.ContainsKey("field_of_view") ? float.Parse(p["field_of_view"], CultureInfo.InvariantCulture) : 60f));
             
             // Scene Management
             RegisterTool("save_scene",
@@ -759,7 +760,7 @@ namespace AICodeActions.Core
             {
                 if (parameters.ContainsKey("y"))
                 {
-                    float y = float.Parse(parameters["y"]);
+                    float y = float.Parse(parameters["y"], CultureInfo.InvariantCulture);
                     
                     // Check for suspicious values (likely typos)
                     if (y > 100 || y < -100)
@@ -772,9 +773,9 @@ namespace AICodeActions.Core
             
             if (toolName == "set_scale")
             {
-                float x = parameters.ContainsKey("x") ? float.Parse(parameters["x"]) : 1;
-                float y = parameters.ContainsKey("y") ? float.Parse(parameters["y"]) : 1;
-                float z = parameters.ContainsKey("z") ? float.Parse(parameters["z"]) : 1;
+                float x = parameters.ContainsKey("x") ? float.Parse(parameters["x"], CultureInfo.InvariantCulture) : 1;
+                float y = parameters.ContainsKey("y") ? float.Parse(parameters["y"], CultureInfo.InvariantCulture) : 1;
+                float z = parameters.ContainsKey("z") ? float.Parse(parameters["z"], CultureInfo.InvariantCulture) : 1;
                 
                 if (x > 100 || y > 100 || z > 100 || x < 0.01f || y < 0.01f || z < 0.01f)
                 {
