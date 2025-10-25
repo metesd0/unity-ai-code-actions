@@ -252,5 +252,13 @@ namespace AICodeActions.Core
         {
             return $"Streaming: {isStreaming}, Elapsed: {ElapsedTime:F2}s, {buffer.GetStats()}";
         }
+        
+        /// <summary>
+        /// Get all buffered text accumulated so far
+        /// </summary>
+        public string GetBufferedText()
+        {
+            return fullResponse?.ToString() ?? "";
+        }
     }
 }
