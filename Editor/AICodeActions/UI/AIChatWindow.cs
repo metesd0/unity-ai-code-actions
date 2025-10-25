@@ -1131,10 +1131,21 @@ Multiple tools can be called in sequence to complete complex tasks.
                 // Process tool calls if in agent mode with real-time feedback
                 if (agentMode)
                 {
-                    // Add initial AI response (queue UI update)
+                    // Check if we need to add a message (non-streaming) or update existing (streaming)
+                    bool messageAlreadyAdded = currentProvider.SupportsStreaming; // Streaming already added a message
+                    
                     QueueUIUpdate(() =>
                     {
-                        conversation.AddAssistantMessage("🤖 Processing your request...\n");
+                        if (messageAlreadyAdded)
+                        {
+                            // Update existing message from streaming
+                            conversation.UpdateLastAssistantMessage(response + "\n\n🤖 Processing your request...\n");
+                        }
+                        else
+                        {
+                            // Add new message for non-streaming
+                            conversation.AddAssistantMessage(response + "\n\n🤖 Processing your request...\n");
+                        }
                         Repaint();
                     });
                     
