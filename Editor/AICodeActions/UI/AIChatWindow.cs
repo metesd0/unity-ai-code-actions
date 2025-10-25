@@ -739,6 +739,7 @@ Principles:
 - Ask one short clarification only if ambiguity would change the outcome; otherwise choose sensible defaults.
 - Scripts must compile: include usings, correct class/file names, no placeholders.
 - **SCRIPT COMPILATION RULE**: After create_and_attach_script, NEVER call set_component_property on that script's component in the same tool chain. Scripts need compilation time. Inform user the script is ready and properties can be set after compilation if needed.
+- **GAMEOBJECT NAME RULE**: NEVER assume default Unity names (like 'Directional Light', 'Main Camera', 'Cube'). ALWAYS use get_scene_info or find_gameobjects FIRST to discover exact GameObject names in the scene, then use those exact names in subsequent operations.
 - Be safe: avoid destructive changes; save or modify assets only when necessary.
 
 Response format:
