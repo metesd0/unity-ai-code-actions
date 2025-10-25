@@ -148,6 +148,12 @@ namespace AICodeActions.Core
             {
                 FlushBuffer();
             }
+
+            // If a full tool block just closed, flush immediately for responsiveness
+            if (EnableToolDetection && chunk.Delta != null && chunk.Delta.Contains("[/TOOL]"))
+            {
+                FlushBuffer();
+            }
         }
         
         /// <summary>
@@ -245,4 +251,3 @@ namespace AICodeActions.Core
         }
     }
 }
-

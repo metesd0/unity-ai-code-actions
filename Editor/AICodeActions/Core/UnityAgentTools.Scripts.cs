@@ -40,6 +40,12 @@ namespace AICodeActions.Core
                 // Read current content
                 string currentContent = System.IO.File.ReadAllText(scriptPath);
                 string newContent = currentContent + "\n" + modifications;
+
+                // Roslyn validation (best-effort)
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Changes not applied.\n{roslynReport}";
+                }
                 
                 // Write modified content
                 System.IO.File.WriteAllText(scriptPath, newContent);
@@ -47,7 +53,7 @@ namespace AICodeActions.Core
                 
                 Debug.Log($"[ModifyScript] Modified {scriptName}.cs");
                 
-                return $"✅ Modified {scriptName}.cs\n💡 Script will recompile automatically";
+                return $"✅ Modified {scriptName}.cs\nℹ️ {roslynReport}\n💡 Script will recompile automatically";
             }
             catch (Exception e)
             {
@@ -109,6 +115,11 @@ namespace AICodeActions.Core
                 string indent = "    "; // 4 spaces
                 string formattedMethod = "\n" + indent + methodCode.Replace("\n", "\n" + indent) + "\n";
                 string newContent = currentContent.Insert(lastBrace, formattedMethod);
+
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Method not inserted.\n{roslynReport}";
+                }
                 
                 // Write modified content
                 System.IO.File.WriteAllText(scriptPath, newContent);
@@ -116,7 +127,7 @@ namespace AICodeActions.Core
                 
                 Debug.Log($"[AddMethodToScript] Added method to {scriptName}.cs");
                 
-                return $"✅ Added method to {scriptName}.cs\n💡 Script will recompile automatically";
+                return $"✅ Added method to {scriptName}.cs\nℹ️ {roslynReport}\n💡 Script will recompile automatically";
             }
             catch (Exception e)
             {
@@ -166,6 +177,11 @@ namespace AICodeActions.Core
                 string indent = "    "; // 4 spaces
                 string formattedField = "\n" + indent + fieldCode + "\n";
                 string newContent = currentContent.Insert(firstBrace + 1, formattedField);
+
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Field not added.\n{roslynReport}";
+                }
                 
                 // Write modified content
                 System.IO.File.WriteAllText(scriptPath, newContent);
@@ -173,7 +189,7 @@ namespace AICodeActions.Core
                 
                 Debug.Log($"[AddFieldToScript] Added field to {scriptName}.cs");
                 
-                return $"✅ Added field to {scriptName}.cs\n💡 Script will recompile automatically";
+                return $"✅ Added field to {scriptName}.cs\nℹ️ {roslynReport}\n💡 Script will recompile automatically";
             }
             catch (Exception e)
             {
@@ -314,13 +330,18 @@ namespace AICodeActions.Core
                 
                 int occurrences = content.Split(new[] { findText }, StringSplitOptions.None).Length - 1;
                 string newContent = content.Replace(findText, replaceText);
+
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Replace not applied.\n{roslynReport}";
+                }
                 
                 System.IO.File.WriteAllText(scriptPath, newContent);
                 AssetDatabase.Refresh();
                 
                 Debug.Log($"[ReplaceInScript] Replaced {occurrences} occurrence(s) in {scriptName}.cs");
                 
-                return $"✅ Replaced {occurrences} occurrence(s) of '{findText}' with '{replaceText}' in {scriptName}.cs";
+                return $"✅ Replaced {occurrences} occurrence(s) of '{findText}' with '{replaceText}' in {scriptName}.cs\nℹ️ {roslynReport}";
             }
             catch (Exception e)
             {

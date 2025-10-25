@@ -104,4 +104,3 @@ namespace AICodeActions.Core
         Metadata
     }
 }
-
