@@ -1162,16 +1162,13 @@ parameter2: value2
                     {
                         try
                         {
-                            // 🎯 Process tools IN GROUPS with sequential execution (ON MAIN THREAD)
-                            var groupResults = agentTools.ProcessToolCallsInGroups(response, (groupProgress) =>
+                            // Process tools with live progress updates (ON MAIN THREAD)
+                            string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
                             {
-                                conversation.UpdateLastAssistantMessage(groupProgress);
+                                conversation.UpdateLastAssistantMessage(progress);
                                 Repaint();
                                 autoScroll = true;
-                            });
-                            
-                            // Combine all group results
-                            string processedResponse = string.Join("\n", groupResults);
+                            }, currentDetailLevel.ToString());
                             
                             tcs.SetResult(processedResponse);
                         }
@@ -1271,16 +1268,12 @@ parameter2: value2
                             {
                                 try
                                 {
-                                    // 🎯 Process tools IN GROUPS with sequential execution (ON MAIN THREAD)
-                                    var contGroupResults = agentTools.ProcessToolCallsInGroups(continuationResponse, (groupProgress) =>
+                                    string contProcessed = agentTools.ProcessToolCallsWithProgress(continuationResponse, (progress) =>
                                     {
-                                        conversation.UpdateLastAssistantMessage(accumulatedResponse + "\n\n" + groupProgress);
+                                        conversation.UpdateLastAssistantMessage(accumulatedResponse + "\n\n" + progress);
                                         Repaint();
                                         autoScroll = true;
-                                    });
-                                    
-                                    // Combine all group results
-                                    string contProcessed = string.Join("\n", contGroupResults);
+                                    }, currentDetailLevel.ToString());
                                     
                                     contTcs.SetResult(contProcessed);
                                 }
