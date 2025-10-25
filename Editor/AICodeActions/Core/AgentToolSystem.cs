@@ -740,11 +740,36 @@ namespace AICodeActions.Core
                     return $"'{match.Groups[1].Value}' ({match.Groups[2].Value} components)";
             }
             
-            // Default: Extract first meaningful line
-            var lines = fullResult.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length > 0)
+            // CRITICAL: Extract GameObject names from find_gameobjects results
+            if (fullResult.Contains("🔍 Found") && fullResult.Contains("GameObject(s)"))
             {
-                string firstLine = lines[0].Trim();
+                var lines = fullResult.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                var objectNames = new System.Collections.Generic.List<string>();
+                
+                foreach (var line in lines)
+                {
+                    // Match lines like "- **ObjectName**"
+                    var match = System.Text.RegularExpressions.Regex.Match(line, @"-\s*\*\*(\w+)\*\*");
+                    if (match.Success)
+                    {
+                        objectNames.Add(match.Groups[1].Value);
+                    }
+                }
+                
+                if (objectNames.Count > 0)
+                {
+                    string names = objectNames.Count <= 5 ? 
+                        string.Join(", ", objectNames) : 
+                        string.Join(", ", objectNames.Take(5)) + $" (+{objectNames.Count - 5} more)";
+                    return $"🔍 Found {objectNames.Count}: {names}";
+                }
+            }
+            
+            // Default: Extract first meaningful line
+            var lines2 = fullResult.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines2.Length > 0)
+            {
+                string firstLine = lines2[0].Trim();
                 if (firstLine.Length > 60)
                     return firstLine.Substring(0, 60) + "...";
                 return firstLine;
