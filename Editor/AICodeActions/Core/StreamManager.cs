@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -10,6 +11,7 @@ namespace AICodeActions.Core
     /// <summary>
     /// Manages streaming responses from AI providers
     /// Coordinates chunk buffering, tool detection, and UI updates
+    /// Thread-safe: doesn't use Unity Editor API from background threads
     /// </summary>
     public class StreamManager
     {
@@ -17,7 +19,7 @@ namespace AICodeActions.Core
         private StringBuilder fullResponse;
         private CancellationTokenSource cancellationTokenSource;
         private bool isStreaming;
-        private double streamStartTime;
+        private Stopwatch streamStopwatch; // Thread-safe timing
         
         // Callbacks
         public Action<string> OnTextUpdate;          // Incremental text update
@@ -34,7 +36,7 @@ namespace AICodeActions.Core
         // State
         public bool IsStreaming => isStreaming;
         public string CurrentText => fullResponse?.ToString() ?? "";
-        public double ElapsedTime => UnityEditor.EditorApplication.timeSinceStartup - streamStartTime;
+        public double ElapsedTime => streamStopwatch?.Elapsed.TotalSeconds ?? 0;
         
         private double lastUpdateTime;
         
@@ -42,6 +44,7 @@ namespace AICodeActions.Core
         {
             buffer = new StreamBuffer();
             fullResponse = new StringBuilder();
+            streamStopwatch = new Stopwatch();
         }
         
         /// <summary>
@@ -60,7 +63,7 @@ namespace AICodeActions.Core
             try
             {
                 isStreaming = true;
-                streamStartTime = UnityEditor.EditorApplication.timeSinceStartup;
+                streamStopwatch.Restart(); // Thread-safe timing
                 fullResponse.Clear();
                 buffer.Clear();
                 
@@ -169,7 +172,7 @@ namespace AICodeActions.Core
             if (!string.IsNullOrEmpty(text))
             {
                 OnTextUpdate?.Invoke(text);
-                lastUpdateTime = UnityEditor.EditorApplication.timeSinceStartup;
+                lastUpdateTime = streamStopwatch.Elapsed.TotalSeconds;
             }
         }
         
@@ -215,7 +218,7 @@ namespace AICodeActions.Core
             if (!isStreaming)
                 return;
             
-            double timeSinceUpdate = UnityEditor.EditorApplication.timeSinceStartup - lastUpdateTime;
+            double timeSinceUpdate = streamStopwatch.Elapsed.TotalSeconds - lastUpdateTime;
             
             // Periodic flush even if buffer isn't full
             if (timeSinceUpdate >= UpdateInterval && buffer.HasContent)
@@ -225,7 +228,7 @@ namespace AICodeActions.Core
                 if (!string.IsNullOrEmpty(text))
                 {
                     OnTextUpdate?.Invoke(text);
-                    lastUpdateTime = UnityEditor.EditorApplication.timeSinceStartup;
+                    lastUpdateTime = streamStopwatch.Elapsed.TotalSeconds;
                 }
             }
         }
