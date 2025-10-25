@@ -899,22 +899,37 @@ Response format:
                         Repaint();
                     });
                     
-                    // Process tools with live progress updates
-                    string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
+                    // CRITICAL: Tool execution MUST happen on main thread (Unity API requirement)
+                    // Use TaskCompletionSource to run tool processing synchronously on main thread
+                    var tcs = new System.Threading.Tasks.TaskCompletionSource<string>();
+                    
+                    UnityEditor.EditorApplication.delayCall += () =>
                     {
-                        // Update UI in real-time as each tool executes (queue it)
-                        QueueUIUpdate(() =>
+                        try
                         {
-                            conversation.UpdateLastAssistantMessage(progress);
-                            Repaint();
-                            autoScroll = true;
-                        });
-                    }, currentDetailLevel.ToString());
+                            // Process tools with live progress updates (ON MAIN THREAD)
+                            string processedResponse = agentTools.ProcessToolCallsWithProgress(response, (progress) =>
+                            {
+                                conversation.UpdateLastAssistantMessage(progress);
+                                Repaint();
+                                autoScroll = true;
+                            }, currentDetailLevel.ToString());
+                            
+                            tcs.SetResult(processedResponse);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            tcs.SetException(ex);
+                        }
+                    };
+                    
+                    // Wait for tool processing to complete on main thread
+                    string finalResponse = await tcs.Task.ConfigureAwait(false);
                     
                     // Replace with final result (queue UI update)
                     QueueUIUpdate(() =>
                     {
-                        conversation.UpdateLastAssistantMessage(processedResponse);
+                        conversation.UpdateLastAssistantMessage(finalResponse);
                     });
                 }
                 else
