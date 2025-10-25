@@ -1266,29 +1266,94 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
         }
         
         /// <summary>
-        /// Extract tool execution results from processed response
+        /// Extract tool execution results from processed response with detailed information
         /// </summary>
         private string ExtractToolResults(string processedResponse)
         {
-            // Look for tool execution results marked with ✅ or ❌
+            var results = new System.Text.StringBuilder();
             var lines = processedResponse.Split('\n');
-            var resultLines = new System.Collections.Generic.List<string>();
+            
+            // Extract from detailed execution log (between <details> tags or after specific markers)
+            bool inDetailedLog = false;
+            var detailedResults = new System.Collections.Generic.List<string>();
             
             foreach (var line in lines)
             {
-                if (line.Contains("✅") || line.Contains("❌") || line.Contains("tool(s)"))
+                // Start capturing when we see detailed log
+                if (line.Contains("Show Detailed Execution Log") || line.Contains("**1.**"))
                 {
-                    resultLines.Add(line.Trim());
+                    inDetailedLog = true;
+                }
+                
+                // Capture tool execution details
+                if (inDetailedLog && line.StartsWith("**") && line.Contains(".**"))
+                {
+                    // Extract the actual result text
+                    // Format: **1.** `tool_name` ✅ Actual result here (0.00s)
+                    
+                    // Extract tool name
+                    int toolStart = line.IndexOf('`');
+                    int toolEnd = line.IndexOf('`', toolStart + 1);
+                    string toolName = toolStart >= 0 && toolEnd > toolStart ? 
+                        line.Substring(toolStart + 1, toolEnd - toolStart - 1) : "";
+                    
+                    // Extract result (after ✅ or ❌)
+                    int resultStart = line.IndexOf("✅");
+                    if (resultStart == -1) resultStart = line.IndexOf("❌");
+                    
+                    if (resultStart >= 0 && resultStart + 2 < line.Length)
+                    {
+                        // Get text after emoji until timing info
+                        int timeStart = line.LastIndexOf('(');
+                        string result = timeStart > resultStart ? 
+                            line.Substring(resultStart + 2, timeStart - resultStart - 2).Trim() :
+                            line.Substring(resultStart + 2).Trim();
+                        
+                        // Format the result nicely
+                        if (!string.IsNullOrWhiteSpace(result))
+                        {
+                            detailedResults.Add($"• {toolName}: {result}");
+                        }
+                    }
+                }
+                
+                // End of detailed log
+                if (line.Contains("</details>") || line.Contains("---"))
+                {
+                    inDetailedLog = false;
                 }
             }
             
-            if (resultLines.Count > 0)
+            // If we found detailed results, return them
+            if (detailedResults.Count > 0)
             {
-                return string.Join("\n", resultLines);
+                results.AppendLine("Tool Execution Results:");
+                foreach (var detail in detailedResults)
+                {
+                    results.AppendLine(detail);
+                }
+                return results.ToString().TrimEnd();
             }
             
-            // Fallback: return a summary
-            return "Tools executed successfully. Check detailed log above.";
+            // Fallback: Look for summary lines with ✅ or ❌
+            var summaryLines = new System.Collections.Generic.List<string>();
+            foreach (var line in lines)
+            {
+                if ((line.Contains("✅") || line.Contains("❌")) && 
+                    !line.Contains("**AI Agent**") && 
+                    !line.Contains("Show Detailed"))
+                {
+                    summaryLines.Add(line.Trim());
+                }
+            }
+            
+            if (summaryLines.Count > 0)
+            {
+                return string.Join("\n", summaryLines);
+            }
+            
+            // Last fallback
+            return "Tools executed. Check previous response for details.";
         }
         
         private void CancelCurrentRequest()
