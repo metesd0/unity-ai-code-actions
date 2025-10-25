@@ -308,7 +308,7 @@ namespace AICodeActions.Providers
                     onChunk?.Invoke(new StreamChunk
                     {
                         Type = StreamChunkType.Error,
-                        Content = $"OpenRouter error ({response.StatusCode}): {errorBody}",
+                        Delta = $"OpenRouter error ({response.StatusCode}): {errorBody}",
                         IsFinal = true
                     });
                     return;
@@ -363,7 +363,7 @@ namespace AICodeActions.Providers
                                     onChunk?.Invoke(new StreamChunk
                                     {
                                         Type = StreamChunkType.Error,
-                                        Content = $"Stream error: {errorMsg}",
+                                        Delta = $"Stream error: {errorMsg}",
                                         IsFinal = true,
                                         Index = chunkIndex++
                                     });
@@ -402,7 +402,7 @@ namespace AICodeActions.Providers
                 onChunk?.Invoke(new StreamChunk
                 {
                     Type = StreamChunkType.Error,
-                    Content = $"Streaming failed: {ex.Message}",
+                    Delta = $"Streaming failed: {ex.Message}",
                     IsFinal = true
                 });
             }
