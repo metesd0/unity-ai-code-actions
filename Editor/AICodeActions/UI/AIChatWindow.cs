@@ -66,6 +66,7 @@ namespace AICodeActions.UI
         private float thinkingFadeTimer = 0f;
         private int thinkingTypingIndex = 0;
         private string fullThinkingBuffer = "";
+        private bool shouldFadeImmediately = false; // Flag: Start fade when reasoning completes
         private const float THINKING_FADE_DURATION = 5.0f; // Very slow, smooth fade out
         private const float THINKING_VISIBLE_TIME = 10.0f; // Thinking stays visible for 10 seconds
         private const float THINKING_TYPING_SPEED = 0.005f; // Fast typing: 200 chars/sec
@@ -194,15 +195,28 @@ namespace AICodeActions.UI
             }
             else
             {
-                // Fully visible - maintain for THINKING_VISIBLE_TIME
+                // Fully visible - check if we should fade immediately or wait
                 thinkingAlpha = 1f;
-                thinkingFadeTimer += Time.deltaTime;
                 
-                if (thinkingFadeTimer >= THINKING_VISIBLE_TIME)
+                // If reasoning complete, start fade immediately
+                if (shouldFadeImmediately)
                 {
                     // Start fade out
                     fullThinkingBuffer = "";
                     thinkingFadeTimer = 0;
+                    shouldFadeImmediately = false;
+                }
+                else
+                {
+                    // Normal behavior: wait for THINKING_VISIBLE_TIME before fading
+                    thinkingFadeTimer += Time.deltaTime;
+                    
+                    if (thinkingFadeTimer >= THINKING_VISIBLE_TIME)
+                    {
+                        // Start fade out
+                        fullThinkingBuffer = "";
+                        thinkingFadeTimer = 0;
+                    }
                 }
             }
         }
@@ -1009,6 +1023,7 @@ parameter2: value2
                                         fullThinkingBuffer = cleanedThinking;
                                         thinkingTypingIndex = 0;
                                         thinkingFadeTimer = 0;
+                                        shouldFadeImmediately = false; // Reset flag when new reasoning arrives
                                         
                                         // Don't save reasoning to message - it's only in footer now
                                         // conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
@@ -1045,9 +1060,8 @@ parameter2: value2
                                     response = finalText;
                                     isStreamActive = false; // Stop update loop
                                     
-                                    // Clear thinking footer when response is complete
-                                    fullThinkingBuffer = "";
-                                    thinkingFadeTimer = 0;
+                                    // Trigger immediate fade of thinking footer when reasoning completes
+                                    shouldFadeImmediately = true;
                                 });
                             };
                             
