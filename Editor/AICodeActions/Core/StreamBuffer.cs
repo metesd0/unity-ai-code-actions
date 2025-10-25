@@ -18,8 +18,8 @@ namespace AICodeActions.Core
         private int totalCharsReceived;
         
         // Configuration
-        public float MinFlushInterval { get; set; } = 0.05f;  // 50ms minimum between flushes
-        public int MaxBufferSize { get; set; } = 100;          // Max chars before force flush
+        public float MinFlushInterval { get; set; } = 0.016f;  // ~60 FPS (16ms) - much smoother!
+        public int MaxBufferSize { get; set; } = 10;           // Flush every 10 chars - very responsive
         public bool AutoFlush { get; set; } = true;
         
         // Stats
@@ -47,8 +47,6 @@ namespace AICodeActions.Core
             chunkQueue.Enqueue(chunk);
             totalChunksReceived++;
             totalCharsReceived += chunk.Delta.Length;
-            
-            Debug.Log($"[StreamBuffer] Added chunk: '{chunk.Delta}' (Buffer size: {buffer.Length})");
         }
         
         /// <summary>
@@ -95,8 +93,6 @@ namespace AICodeActions.Core
             buffer.Remove(0, charsToFlush);
             lastFlushTime = UnityEditor.EditorApplication.timeSinceStartup;
             
-            Debug.Log($"[StreamBuffer] Flushed {charsToFlush} chars: '{result}'");
-            
             return result;
         }
         
@@ -112,8 +108,6 @@ namespace AICodeActions.Core
             buffer.Clear();
             chunkQueue.Clear();
             lastFlushTime = UnityEditor.EditorApplication.timeSinceStartup;
-            
-            Debug.Log($"[StreamBuffer] Flushed ALL: {result.Length} chars");
             
             return result;
         }
@@ -133,7 +127,6 @@ namespace AICodeActions.Core
         {
             buffer.Clear();
             chunkQueue.Clear();
-            Debug.Log("[StreamBuffer] Cleared");
         }
         
         /// <summary>
