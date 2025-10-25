@@ -66,9 +66,9 @@ namespace AICodeActions.UI
         private float thinkingFadeTimer = 0f;
         private int thinkingTypingIndex = 0;
         private string fullThinkingBuffer = "";
-        private const float THINKING_FADE_DURATION = 3.5f; // Slow, smooth fade out
-        private const float THINKING_VISIBLE_TIME = 5.0f; // Thinking stays visible for 5 seconds
-        private const float THINKING_TYPING_SPEED = 0.02f; // seconds per character
+        private const float THINKING_FADE_DURATION = 5.0f; // Very slow, smooth fade out
+        private const float THINKING_VISIBLE_TIME = 10.0f; // Thinking stays visible for 10 seconds
+        private const float THINKING_TYPING_SPEED = 0.005f; // Fast typing: 200 chars/sec
         
         // Cancellation support
         private System.Threading.CancellationTokenSource cancellationTokenSource;
