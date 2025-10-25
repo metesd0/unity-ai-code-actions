@@ -572,16 +572,8 @@ namespace AICodeActions.UI
         
         private void DrawContentWithCodeBlocks(string content)
         {
-            // ReAct Pattern: Parse [THINKING], [ACTION], [OBSERVATION] blocks
-            if (agentMode && showThinking)
-            {
-                content = ParseReActBlocks(content);
-            }
-            else if (agentMode && !showThinking)
-            {
-                // Hide thinking blocks when toggle is off
-                content = Regex.Replace(content, @"\[THINKING\][\s\S]*?(?=\[ACTION\]|\[OBSERVATION\]|$)", "", RegexOptions.IgnoreCase);
-            }
+            // Note: [THINKING] blocks removed - OpenRouter reasoning provides real model thinking
+            // Only tool [TOOL:...] blocks are parsed by AgentToolSystem
             
             // Check if message contains code blocks
             var codeBlockMatches = Regex.Matches(content, @"```(?:csharp|c#)?\n([\s\S]*?)```");
@@ -631,23 +623,6 @@ namespace AICodeActions.UI
                 // No code blocks, just show text
                 EditorGUILayout.LabelField(content, EditorStyles.wordWrappedLabel);
             }
-        }
-        
-        /// <summary>
-        /// Parse and highlight ReAct pattern blocks
-        /// </summary>
-        private string ParseReActBlocks(string content)
-        {
-            // Highlight [THINKING] blocks with 💭 icon
-            content = Regex.Replace(content, @"\[THINKING\]", "💭 **THINKING:**", RegexOptions.IgnoreCase);
-            
-            // Highlight [ACTION] blocks with ⚡ icon
-            content = Regex.Replace(content, @"\[ACTION\]", "\n⚡ **ACTION:**", RegexOptions.IgnoreCase);
-            
-            // Highlight [OBSERVATION] blocks with 👁️ icon (system adds these)
-            content = Regex.Replace(content, @"\[OBSERVATION\]", "\n👁️ **OBSERVATION:**", RegexOptions.IgnoreCase);
-            
-            return content;
         }
         
         private void DrawInputArea()
@@ -800,98 +775,50 @@ namespace AICodeActions.UI
                 string systemPrompt = "You are an expert Unity AI assistant.";
                 if (agentMode)
                 {
-                    systemPrompt = @"# Unity AI Assistant - ReAct Pattern
+                    systemPrompt = @"# Unity AI Assistant
 
-You are an expert Unity editor agent that uses the ReAct (Reasoning + Acting) pattern. You think step-by-step, take actions, and observe results before proceeding.
+You are an expert Unity editor agent. Execute user requests efficiently using available tools.
 
-## 🧠 ReAct Pattern Structure
+## 🎯 Core Principles
 
-For EVERY user request, follow this loop:
-
-1. **[THINKING]** - Analyze the situation and plan
-   - What does the user want?
-   - What information do I need?
-   - What tools should I use?
-   - Are there any risks or edge cases?
-
-2. **[ACTION]** - Execute tool calls
-   - Use [TOOL:...] blocks with exact parameters
-   - One action at a time if results depend on previous steps
-
-3. **[OBSERVATION]** - After tool execution, you'll receive results
-   - Analyze what happened
-   - Did it succeed or fail?
-   - What did I learn?
-   - Do I need to adjust my approach?
-
-4. **Repeat or Conclude**
-   - If more steps needed: Return to [THINKING]
-   - If task complete: Provide clear summary to user
-
-## ⚡ Critical Rules
+**Think Before Acting:**
+- Analyze the user's request carefully
+- If you need information, get it first (use get_scene_info, find_gameobjects)
+- Then take action based on real data, not assumptions
 
 **GameObject Names:**
 - ❌ NEVER assume 'Main Camera', 'Directional Light', 'Cube', etc.
-- ✅ ALWAYS check scene first with get_scene_info or find_gameobjects
-- Example:
-  [THINKING] User wants to modify light. I should check what lights exist in the scene.
-  [ACTION] [TOOL:get_scene_info]
-  [OBSERVATION] Found 'Sun' light in scene
-  [ACTION] [TOOL:set_component_property] gameobject_name: Sun
+- ✅ ALWAYS check scene first with get_scene_info or find_gameobjects to discover actual names
+- Example: User wants to modify light → First use find_gameobjects to find lights → Use the actual name from results
 
 **Script Compilation:**
 - ❌ NEVER call set_component_property immediately after create_and_attach_script
-- ✅ Scripts need compilation time (few seconds)
-- Example:
-  [ACTION] [TOOL:create_and_attach_script] → Create PlayerController
-  [THINKING] Script needs compilation. I should inform user and NOT set properties yet.
+- ✅ Scripts need compilation time (few seconds) - inform user properties can be set after compilation
 
-**Error Handling:**
-- If a tool fails, analyze WHY in [THINKING]
-- Try alternative approaches
+**Error Recovery:**
+- If a tool fails, analyze why and try an alternative approach
 - Don't repeat the same failing action
+- If a GameObject is not found, search for it first
 
-## 📝 Response Format
+## 🔧 Tool Usage
 
-Always structure your response:
-1. Brief [THINKING] - One or two sentences about your plan
-2. [ACTION] - Tool calls
-3. Wait for [OBSERVATION] (system provides this)
-4. Final [THINKING] - Summarize results for user in their language
+Use [TOOL:tool_name] blocks with exact parameters:
 
-Example:
-User: 'Create a rotating cube'
-
-[THINKING]
-I need to: 1) Create a cube primitive, 2) Create a rotation script, 3) Attach it. Let me start with the cube.
-
-[ACTION]
-[TOOL:create_primitive]
-primitive_type: Cube
-name: RotatingCube
-x: 0
-y: 0
-z: 0
+```
+[TOOL:tool_name]
+parameter1: value1
+parameter2: value2
 [/TOOL]
+```
 
-[THINKING]
-Cube created successfully. Now I'll create a simple rotation script and attach it.
+Multiple tools can be called in sequence to complete complex tasks.
 
-[ACTION]
-[TOOL:create_and_attach_script]
-gameobject_name: RotatingCube
-script_name: RotateCube
-script_content: using UnityEngine;
-public class RotateCube : MonoBehaviour {
-    public float speed = 50f;
-    void Update() { transform.Rotate(Vector3.up * speed * Time.deltaTime); }
-}
-[/TOOL]
+## ✅ Response Style
 
-[THINKING]
-Perfect! Rotating cube is complete. The script will compile in a few seconds and start rotating automatically.
-
-✅ Created 'RotatingCube' with rotation script. Play mode'da döneceği görülecek!";
+- Be concise and action-oriented
+- Use the user's language when possible
+- Provide clear summaries of what was accomplished
+- If task requires multiple steps, complete them all in one response";
                     
                     // Add context awareness
                     string contextSummary = agentTools.GetContextSummary();
@@ -1121,8 +1048,9 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                             break;
                         }
                         
-                        // 👁️ OBSERVATION: Inject tool results back to AI
-                        string observation = $"\n\n[OBSERVATION]\nTool execution completed. Results:\n{ExtractToolResults(finalResponse)}\n\nBased on these results, what's your next action? If the task is complete, provide a final summary.";
+                        // Inject tool results back to AI for next step
+                        string toolResults = ExtractToolResults(finalResponse);
+                        string observation = $"\n\nTool execution results:\n{toolResults}\n\nBased on these results, continue if needed or provide a final summary.";
                         
                         // Create continuation prompt
                         string continuationPrompt = $"{systemPrompt}\n\n{toolsInfo}\n\nPrevious conversation:\nUser: {message}\nAssistant: {accumulatedResponse}\n\n{observation}\n\nAssistant:";
