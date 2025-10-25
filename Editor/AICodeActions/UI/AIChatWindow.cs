@@ -37,6 +37,9 @@ namespace AICodeActions.UI
         private DetailLevel currentDetailLevel = DetailLevel.Compact;
         private bool showOnlyErrors = false;
         
+        // ReAct Pattern control
+        private bool showThinking = true; // Show AI reasoning by default
+        
         // Context tracking for better AI understanding
         private string lastCreatedScript = "";
         private string lastCreatedGameObject = "";
@@ -317,6 +320,12 @@ namespace AICodeActions.UI
                 conversation.AddSystemMessage(msg);
             }
             
+            // ReAct thinking toggle (only visible in agent mode)
+            if (agentMode)
+            {
+                showThinking = GUILayout.Toggle(showThinking, "💭 Thinking", EditorStyles.toolbarButton, GUILayout.Width(80));
+            }
+            
             if (GUILayout.Button("Settings", EditorStyles.toolbarButton, GUILayout.Width(60)))
             {
                 ShowSettings();
@@ -529,6 +538,17 @@ namespace AICodeActions.UI
         
         private void DrawContentWithCodeBlocks(string content)
         {
+            // ReAct Pattern: Parse [THINKING], [ACTION], [OBSERVATION] blocks
+            if (agentMode && showThinking)
+            {
+                content = ParseReActBlocks(content);
+            }
+            else if (agentMode && !showThinking)
+            {
+                // Hide thinking blocks when toggle is off
+                content = Regex.Replace(content, @"\[THINKING\][\s\S]*?(?=\[ACTION\]|\[OBSERVATION\]|$)", "", RegexOptions.IgnoreCase);
+            }
+            
             // Check if message contains code blocks
             var codeBlockMatches = Regex.Matches(content, @"```(?:csharp|c#)?\n([\s\S]*?)```");
             
@@ -577,6 +597,23 @@ namespace AICodeActions.UI
                 // No code blocks, just show text
                 EditorGUILayout.LabelField(content, EditorStyles.wordWrappedLabel);
             }
+        }
+        
+        /// <summary>
+        /// Parse and highlight ReAct pattern blocks
+        /// </summary>
+        private string ParseReActBlocks(string content)
+        {
+            // Highlight [THINKING] blocks with 💭 icon
+            content = Regex.Replace(content, @"\[THINKING\]", "💭 **THINKING:**", RegexOptions.IgnoreCase);
+            
+            // Highlight [ACTION] blocks with ⚡ icon
+            content = Regex.Replace(content, @"\[ACTION\]", "\n⚡ **ACTION:**", RegexOptions.IgnoreCase);
+            
+            // Highlight [OBSERVATION] blocks with 👁️ icon (system adds these)
+            content = Regex.Replace(content, @"\[OBSERVATION\]", "\n👁️ **OBSERVATION:**", RegexOptions.IgnoreCase);
+            
+            return content;
         }
         
         private void DrawInputArea()
@@ -729,28 +766,98 @@ namespace AICodeActions.UI
                 string systemPrompt = "You are an expert Unity AI assistant.";
                 if (agentMode)
                 {
-                    systemPrompt = @"# Unity AI Assistant (Concise)
+                    systemPrompt = @"# Unity AI Assistant - ReAct Pattern
 
-You are a helpful Unity editor agent. Prefer the minimum number of correct actions to satisfy the user request. Plan briefly, execute safely, verify results.
+You are an expert Unity editor agent that uses the ReAct (Reasoning + Acting) pattern. You think step-by-step, take actions, and observe results before proceeding.
 
-Principles:
-- Use tools only when needed; avoid unnecessary chains. Prefer fewer, correct steps.
-- After critical actions (create/attach/modify), verify and fix or report.
-- Ask one short clarification only if ambiguity would change the outcome; otherwise choose sensible defaults.
-- Scripts must compile: include usings, correct class/file names, no placeholders.
-- **SCRIPT COMPILATION RULE**: After create_and_attach_script, NEVER call set_component_property on that script's component in the same tool chain. Scripts need compilation time. Inform user the script is ready and properties can be set after compilation if needed.
-- **GAMEOBJECT NAME RULE**: NEVER assume default Unity names (like 'Directional Light', 'Main Camera', 'Cube'). ALWAYS use get_scene_info or find_gameobjects FIRST to discover exact GameObject names in the scene, then use those exact names in subsequent operations.
-- Be safe: avoid destructive changes; save or modify assets only when necessary.
+## 🧠 ReAct Pattern Structure
 
-Response format:
-- If tools are needed: output ordered [TOOL:...] blocks with required parameters.
-- **CRITICAL**: After tool execution, ALWAYS analyze the results and provide a clear summary to the user:
-  * For get_scene_info / get_project_stats: List key findings (object count, issues, stats)
-  * For find_gameobjects: Show which objects were found and their properties
-  * For read_script: Explain what the script does or note any issues
-  * For creation/modification: Confirm what was created/changed and next steps
-- If tools are not needed: answer directly.
-- Use the user's language when possible.";
+For EVERY user request, follow this loop:
+
+1. **[THINKING]** - Analyze the situation and plan
+   - What does the user want?
+   - What information do I need?
+   - What tools should I use?
+   - Are there any risks or edge cases?
+
+2. **[ACTION]** - Execute tool calls
+   - Use [TOOL:...] blocks with exact parameters
+   - One action at a time if results depend on previous steps
+
+3. **[OBSERVATION]** - After tool execution, you'll receive results
+   - Analyze what happened
+   - Did it succeed or fail?
+   - What did I learn?
+   - Do I need to adjust my approach?
+
+4. **Repeat or Conclude**
+   - If more steps needed: Return to [THINKING]
+   - If task complete: Provide clear summary to user
+
+## ⚡ Critical Rules
+
+**GameObject Names:**
+- ❌ NEVER assume 'Main Camera', 'Directional Light', 'Cube', etc.
+- ✅ ALWAYS check scene first with get_scene_info or find_gameobjects
+- Example:
+  [THINKING] User wants to modify light. I should check what lights exist in the scene.
+  [ACTION] [TOOL:get_scene_info]
+  [OBSERVATION] Found 'Sun' light in scene
+  [ACTION] [TOOL:set_component_property] gameobject_name: Sun
+
+**Script Compilation:**
+- ❌ NEVER call set_component_property immediately after create_and_attach_script
+- ✅ Scripts need compilation time (few seconds)
+- Example:
+  [ACTION] [TOOL:create_and_attach_script] → Create PlayerController
+  [THINKING] Script needs compilation. I should inform user and NOT set properties yet.
+
+**Error Handling:**
+- If a tool fails, analyze WHY in [THINKING]
+- Try alternative approaches
+- Don't repeat the same failing action
+
+## 📝 Response Format
+
+Always structure your response:
+1. Brief [THINKING] - One or two sentences about your plan
+2. [ACTION] - Tool calls
+3. Wait for [OBSERVATION] (system provides this)
+4. Final [THINKING] - Summarize results for user in their language
+
+Example:
+User: 'Create a rotating cube'
+
+[THINKING]
+I need to: 1) Create a cube primitive, 2) Create a rotation script, 3) Attach it. Let me start with the cube.
+
+[ACTION]
+[TOOL:create_primitive]
+primitive_type: Cube
+name: RotatingCube
+x: 0
+y: 0
+z: 0
+[/TOOL]
+
+[THINKING]
+Cube created successfully. Now I'll create a simple rotation script and attach it.
+
+[ACTION]
+[TOOL:create_and_attach_script]
+gameobject_name: RotatingCube
+script_name: RotateCube
+script_content: using UnityEngine;
+public class RotateCube : MonoBehaviour {
+    public float speed = 50f;
+    void Update() { transform.Rotate(Vector3.up * speed * Time.deltaTime); }
+}
+[/TOOL]
+
+[THINKING]
+Perfect! Rotating cube is complete. The script will compile in a few seconds and start rotating automatically.
+
+✅ Created 'RotatingCube' with rotation script. Play mode'da döneceği görülecek!";
                     
                     // Add context awareness
                     string contextSummary = agentTools.GetContextSummary();
