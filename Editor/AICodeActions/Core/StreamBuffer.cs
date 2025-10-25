@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using UnityEngine;
 
@@ -8,11 +9,13 @@ namespace AICodeActions.Core
     /// <summary>
     /// Buffers streaming chunks for smooth UI updates
     /// Prevents overwhelming the UI with too many rapid updates
+    /// Thread-safe and doesn't block Unity's main thread
     /// </summary>
     public class StreamBuffer
     {
         private StringBuilder buffer;
         private Queue<StreamChunk> chunkQueue;
+        private Stopwatch stopwatch; // Thread-safe timing instead of EditorApplication
         private double lastFlushTime;
         private int totalChunksReceived;
         private int totalCharsReceived;
@@ -32,7 +35,8 @@ namespace AICodeActions.Core
         {
             buffer = new StringBuilder(256);
             chunkQueue = new Queue<StreamChunk>();
-            lastFlushTime = UnityEditor.EditorApplication.timeSinceStartup;
+            stopwatch = Stopwatch.StartNew(); // Start timing immediately
+            lastFlushTime = 0;
         }
         
         /// <summary>
@@ -66,7 +70,8 @@ namespace AICodeActions.Core
         /// </summary>
         public bool ShouldFlush()
         {
-            double timeSinceFlush = UnityEditor.EditorApplication.timeSinceStartup - lastFlushTime;
+            double currentTime = stopwatch.Elapsed.TotalSeconds;
+            double timeSinceFlush = currentTime - lastFlushTime;
             
             // Force flush if buffer is too large
             if (buffer.Length >= MaxBufferSize)
@@ -91,7 +96,7 @@ namespace AICodeActions.Core
             string result = buffer.ToString(0, charsToFlush);
             
             buffer.Remove(0, charsToFlush);
-            lastFlushTime = UnityEditor.EditorApplication.timeSinceStartup;
+            lastFlushTime = stopwatch.Elapsed.TotalSeconds;
             
             return result;
         }
@@ -107,7 +112,7 @@ namespace AICodeActions.Core
             string result = buffer.ToString();
             buffer.Clear();
             chunkQueue.Clear();
-            lastFlushTime = UnityEditor.EditorApplication.timeSinceStartup;
+            lastFlushTime = stopwatch.Elapsed.TotalSeconds;
             
             return result;
         }

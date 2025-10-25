@@ -20,6 +20,10 @@ namespace AICodeActions.UI
         private StreamManager streamManager; // NEW: Streaming support
         private bool isStreamActive = false; // Only update when actively streaming
         
+        // Thread-safe UI update queue to prevent "Hold on..." popup
+        private System.Collections.Generic.Queue<System.Action> uiUpdateQueue = new System.Collections.Generic.Queue<System.Action>();
+        private object queueLock = new object();
+        
         private int selectedProviderIndex = 0;
         private string[] providerNames = { "OpenAI", "Gemini", "Ollama (Local)", "OpenRouter" };
         private string apiKey = "";
@@ -124,9 +128,66 @@ namespace AICodeActions.UI
         /// </summary>
         private void OnEditorUpdate()
         {
+            // Process UI updates from background threads (prevents "Hold on..." popup)
+            ProcessUIUpdateQueue();
+            
             if (isStreamActive && streamManager != null)
             {
                 streamManager.Update();
+            }
+        }
+        
+        /// <summary>
+        /// Process queued UI updates on the main thread
+        /// This prevents "Hold on..." popup by moving UI work out of streaming callbacks
+        /// </summary>
+        private void ProcessUIUpdateQueue()
+        {
+            // Process max 10 updates per frame to avoid blocking
+            int maxUpdatesPerFrame = 10;
+            int processedCount = 0;
+            
+            while (processedCount < maxUpdatesPerFrame)
+            {
+                System.Action updateAction = null;
+                
+                lock (queueLock)
+                {
+                    if (uiUpdateQueue.Count > 0)
+                    {
+                        updateAction = uiUpdateQueue.Dequeue();
+                    }
+                    else
+                    {
+                        break; // Queue empty
+                    }
+                }
+                
+                if (updateAction != null)
+                {
+                    try
+                    {
+                        updateAction.Invoke(); // Execute on main thread
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[AIChatWindow] UI update error: {ex.Message}");
+                    }
+                }
+                
+                processedCount++;
+            }
+        }
+        
+        /// <summary>
+        /// Queue a UI update to be executed on the main thread
+        /// Safe to call from any thread (streaming callbacks, etc.)
+        /// </summary>
+        private void QueueUIUpdate(System.Action action)
+        {
+            lock (queueLock)
+            {
+                uiUpdateQueue.Enqueue(action);
             }
         }
         
@@ -728,25 +789,36 @@ Response format:
                             Repaint();
                             
                             // ⚠️ CRITICAL: Setup callbacks BEFORE starting stream!
+                            // All UI updates are queued to prevent "Hold on..." popup
                             streamManager.OnTextUpdate = (text) =>
                             {
                                 streamingResponse.Append(text);
-                                conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
-                                Repaint();
-                                autoScroll = true;
+                                // Queue UI update instead of direct call (prevents blocking)
+                                QueueUIUpdate(() =>
+                                {
+                                    conversation.UpdateLastAssistantMessage(streamingResponse.ToString());
+                                    autoScroll = true;
+                                    Repaint();
+                                });
                             };
                             
                             streamManager.OnComplete = (finalText) =>
                             {
-                                response = finalText;
-                                isStreamActive = false; // Stop update loop
+                                QueueUIUpdate(() =>
+                                {
+                                    response = finalText;
+                                    isStreamActive = false; // Stop update loop
+                                });
                             };
                             
                             streamManager.OnError = (error) =>
                             {
                                 Debug.LogError($"[AI Chat] Streaming error: {error}");
-                                response = $"⚠️ Streaming error: {error}";
-                                isStreamActive = false; // Stop update loop
+                                QueueUIUpdate(() =>
+                                {
+                                    response = $"⚠️ Streaming error: {error}";
+                                    isStreamActive = false; // Stop update loop
+                                });
                             };
                             
                             // Activate streaming update loop
