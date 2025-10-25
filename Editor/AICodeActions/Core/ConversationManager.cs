@@ -18,6 +18,23 @@ namespace AICodeActions.Core
 
         public IReadOnlyList<ChatMessage> Messages => messages;
         
+        public string ToMarkdown()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("# Chat Export");
+            sb.AppendLine($"Exported: {DateTime.Now:yyyy-MM-dd HH:mm}");
+            sb.AppendLine();
+            foreach (var msg in messages)
+            {
+                string role = msg.role.ToString();
+                sb.AppendLine($"## {role} · {msg.timestamp:HH:mm:ss}");
+                sb.AppendLine();
+                sb.AppendLine(msg.content ?? "");
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
+        
         public void AddUserMessage(string content)
         {
             var message = new ChatMessage
