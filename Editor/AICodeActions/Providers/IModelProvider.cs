@@ -50,6 +50,9 @@ namespace AICodeActions.Providers
         public string reasoningEffort = null; // "low", "medium", "high", or null to disable
         public int? reasoningMaxTokens = null; // For Anthropic-style models
         public bool reasoningExclude = false; // Hide reasoning from response
+        
+        // Gemini Thinking support
+        public int? thinkingBudget = null; // -1: dynamic, 0: off, 128-32768: token budget (null: default)
     }
 
     [Serializable]
