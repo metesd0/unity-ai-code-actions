@@ -1129,7 +1129,7 @@ Multiple tools can be called in sequence to complete complex tasks.
                 }
                 
                 // Process tool calls if in agent mode with real-time feedback
-                if (agentMode)
+                if (agentMode && HasToolCalls(response))
                 {
                     // Check if we need to add a message (non-streaming) or update existing (streaming)
                     bool messageAlreadyAdded = currentProvider.SupportsStreaming; // Streaming already added a message
@@ -1299,9 +1299,17 @@ Multiple tools can be called in sequence to complete complex tasks.
                 }
                 else
                 {
+                    // No tools or not agent mode - add/update message accordingly
+                    bool messageAlreadyAdded = currentProvider.SupportsStreaming; // Streaming already added a message
+                    
                     QueueUIUpdate(() =>
                     {
-                        conversation.AddAssistantMessage(response);
+                        if (!messageAlreadyAdded)
+                        {
+                            // Non-streaming: Add message
+                            conversation.AddAssistantMessage(response);
+                        }
+                        // If streaming: Message already added and updated, nothing to do
                     });
                 }
                 
