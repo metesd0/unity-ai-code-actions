@@ -972,7 +972,17 @@ parameter2: value2
                     reasoningEffort = (currentReasoningLevel == ReasoningLevel.Low || currentReasoningLevel == ReasoningLevel.Medium) ?
                                       (currentReasoningLevel == ReasoningLevel.Low ? "low" : "medium") : null,
                     reasoningMaxTokens = currentReasoningLevel == ReasoningLevel.High ? 2000 : (int?)null,
-                    reasoningExclude = !showThinking // Hide reasoning if thinking toggle is off
+                    reasoningExclude = !showThinking, // Hide reasoning if thinking toggle is off
+                    
+                    // Gemini Thinking Budget (for Gemini 2.5 models)
+                    thinkingBudget = currentReasoningLevel switch
+                    {
+                        ReasoningLevel.Off => 0,
+                        ReasoningLevel.Low => 1024,
+                        ReasoningLevel.Medium => 8192,
+                        ReasoningLevel.High => -1, // Dynamic thinking
+                        _ => null // Default (model decides)
+                    }
                 };
                 
                 // Retry loop for reliability

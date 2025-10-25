@@ -52,6 +52,16 @@ namespace AICodeActions.Providers
             string url = $"{DEFAULT_ENDPOINT}{model}:generateContent?key={config.apiKey}";
             Debug.Log($"[Gemini] Request URL: {DEFAULT_ENDPOINT}{model}:generateContent?key=***");
 
+            // Build thinking config if specified
+            string thinkingConfig = "";
+            if (parameters.thinkingBudget.HasValue)
+            {
+                thinkingConfig = $@",
+                ""thinkingConfig"": {{
+                    ""thinkingBudget"": {parameters.thinkingBudget.Value}
+                }}";
+            }
+
             string jsonBody = $@"{{
                 ""contents"": [{{
                     ""parts"": [{{
@@ -62,7 +72,7 @@ namespace AICodeActions.Providers
                     ""temperature"": {parameters.temperature.ToString(CultureInfo.InvariantCulture)},
                     ""maxOutputTokens"": {parameters.maxTokens},
                     ""topP"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
-                }}
+                }}{thinkingConfig}
             }}";
             
             Debug.Log($"[Gemini] Request Body: {jsonBody.Substring(0, Math.Min(200, jsonBody.Length))}...");
@@ -191,6 +201,16 @@ namespace AICodeActions.Providers
             string url = $"{DEFAULT_ENDPOINT}{model}:streamGenerateContent?key={config.apiKey}&alt=sse";
             Debug.Log($"[Gemini] Streaming URL: {DEFAULT_ENDPOINT}{model}:streamGenerateContent?key=***&alt=sse");
 
+            // Build thinking config if specified
+            string thinkingConfig = "";
+            if (parameters.thinkingBudget.HasValue)
+            {
+                thinkingConfig = $@",
+                ""thinkingConfig"": {{
+                    ""thinkingBudget"": {parameters.thinkingBudget.Value}
+                }}";
+            }
+
             string jsonBody = $@"{{
                 ""contents"": [{{
                     ""parts"": [{{
@@ -201,7 +221,7 @@ namespace AICodeActions.Providers
                     ""temperature"": {parameters.temperature.ToString(CultureInfo.InvariantCulture)},
                     ""maxOutputTokens"": {parameters.maxTokens},
                     ""topP"": {parameters.topP.ToString(CultureInfo.InvariantCulture)}
-                }}
+                }}{thinkingConfig}
             }}";
 
             Debug.Log($"[Gemini] Streaming request body: {jsonBody.Substring(0, Math.Min(200, jsonBody.Length))}...");
@@ -252,16 +272,22 @@ namespace AICodeActions.Providers
                             // Parse JSON chunk
                             try
                             {
-                                // Extract text from Gemini streaming response
-                                // Format: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
-                                string text = ExtractStreamText(jsonData);
+                                // Extract text and thought status from Gemini streaming response
+                                // Format: {"candidates":[{"content":{"parts":[{"text":"...","thought":true}]}}]}
+                                var (text, isThought) = ExtractStreamChunk(jsonData);
                                 
                                 if (!string.IsNullOrEmpty(text))
                                 {
+                                    // Determine chunk type based on thought flag
+                                    StreamChunkType chunkType = isThought 
+                                        ? StreamChunkType.ReasoningDelta 
+                                        : StreamChunkType.Content;
+                                    
                                     onChunk?.Invoke(new StreamChunk
                                     {
-                                        Type = StreamChunkType.Content,
+                                        Type = chunkType,
                                         Delta = text,
+                                        ReasoningText = isThought ? text : null,
                                         IsFinal = false,
                                         Index = chunkIndex++
                                     });
@@ -296,12 +322,16 @@ namespace AICodeActions.Providers
             }
         }
 
-        private string ExtractStreamText(string jsonData)
+        /// <summary>
+        /// Extract text and thought status from Gemini streaming response
+        /// Returns (text, isThought) tuple
+        /// </summary>
+        private (string text, bool isThought) ExtractStreamChunk(string jsonData)
         {
             // Extract text from streaming response chunk
             int textStart = jsonData.IndexOf("\"text\":");
             if (textStart == -1)
-                return null;
+                return (null, false);
 
             textStart = jsonData.IndexOf("\"", textStart + 7) + 1;
             
@@ -327,7 +357,7 @@ namespace AICodeActions.Providers
             }
             
             if (textEnd >= jsonData.Length)
-                return null;
+                return (null, false);
             
             string text = jsonData.Substring(textStart, textEnd - textStart)
                 .Replace("\\n", "\n")
@@ -336,6 +366,16 @@ namespace AICodeActions.Providers
                 .Replace("\\\"", "\"")
                 .Replace("\\\\", "\\");
             
+            // Check if this is a thought (thinking) chunk
+            bool isThought = jsonData.Contains("\"thought\":true") || jsonData.Contains("\"thought\": true");
+            
+            return (text, isThought);
+        }
+
+        private string ExtractStreamText(string jsonData)
+        {
+            // Legacy method for backward compatibility
+            var (text, _) = ExtractStreamChunk(jsonData);
             return text;
         }
 
