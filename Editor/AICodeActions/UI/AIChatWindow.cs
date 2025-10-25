@@ -40,6 +40,10 @@ namespace AICodeActions.UI
         // ReAct Pattern control
         private bool showThinking = true; // Show AI reasoning by default
         
+        // OpenRouter Reasoning control
+        private enum ReasoningLevel { Off, Low, Medium, High }
+        private ReasoningLevel currentReasoningLevel = ReasoningLevel.High; // Default to high for best results
+        
         // Context tracking for better AI understanding
         private string lastCreatedScript = "";
         private string lastCreatedGameObject = "";
@@ -875,7 +879,14 @@ Perfect! Rotating cube is complete. The script will compile in a few seconds and
                 var parameters = new ModelParameters
                 {
                     temperature = 0.7f,
-                    maxTokens = agentMode ? 6144 : 2048 // Boosted for complex tasks
+                    maxTokens = agentMode ? 6144 : 2048, // Boosted for complex tasks
+                    
+                    // OpenRouter Reasoning Tokens (for supported models)
+                    reasoningEffort = currentReasoningLevel == ReasoningLevel.Off ? null :
+                                      currentReasoningLevel == ReasoningLevel.Low ? "low" :
+                                      currentReasoningLevel == ReasoningLevel.Medium ? "medium" : "high",
+                    reasoningMaxTokens = currentReasoningLevel == ReasoningLevel.High ? 2000 : (int?)null,
+                    reasoningExclude = !showThinking // Hide reasoning if thinking toggle is off
                 };
                 
                 // Retry loop for reliability

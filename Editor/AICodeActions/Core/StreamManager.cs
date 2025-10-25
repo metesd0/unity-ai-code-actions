@@ -17,6 +17,7 @@ namespace AICodeActions.Core
     {
         private StreamBuffer buffer;
         private StringBuilder fullResponse;
+        private StringBuilder reasoningText; // Accumulate reasoning tokens separately
         private CancellationTokenSource cancellationTokenSource;
         private bool isStreaming;
         private Stopwatch streamStopwatch; // Thread-safe timing
@@ -27,6 +28,7 @@ namespace AICodeActions.Core
         public Action<string> OnComplete;            // Stream completed with full text
         public Action<string> OnError;               // Stream error
         public Action<float> OnProgress;             // Progress update (0-1)
+        public Action<string> OnReasoningUpdate;     // Reasoning/thinking tokens update
         
         // Configuration
         public float UpdateInterval { get; set; } = 0.05f;  // 50ms between UI updates
@@ -44,6 +46,7 @@ namespace AICodeActions.Core
         {
             buffer = new StreamBuffer();
             fullResponse = new StringBuilder();
+            reasoningText = new StringBuilder();
             streamStopwatch = new Stopwatch();
         }
         
@@ -116,6 +119,10 @@ namespace AICodeActions.Core
                     HandleTextChunk(chunk);
                     break;
                     
+                case StreamChunkType.ReasoningDelta:
+                    HandleReasoningChunk(chunk);
+                    break;
+                    
                 case StreamChunkType.ToolCallStart:
                     HandleToolStart(chunk);
                     break;
@@ -157,6 +164,22 @@ namespace AICodeActions.Core
             {
                 FlushBuffer();
             }
+        }
+        
+        /// <summary>
+        /// Handle reasoning/thinking chunk (OpenRouter reasoning tokens)
+        /// </summary>
+        private void HandleReasoningChunk(StreamChunk chunk)
+        {
+            if (string.IsNullOrEmpty(chunk.ReasoningText))
+                return;
+            
+            reasoningText.Append(chunk.ReasoningText);
+            
+            // Notify callback with accumulated reasoning text
+            OnReasoningUpdate?.Invoke(chunk.ReasoningText);
+            
+            Debug.Log($"[StreamManager] Reasoning chunk received: {chunk.ReasoningText.Substring(0, Math.Min(50, chunk.ReasoningText.Length))}...");
         }
         
         /// <summary>
