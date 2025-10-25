@@ -1,10 +1,10 @@
 using System;
-using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using Stopwatch = System.Diagnostics.Stopwatch; // Alias to avoid Debug conflict
 
 namespace AICodeActions.Core
 {
