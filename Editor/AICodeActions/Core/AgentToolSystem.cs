@@ -589,7 +589,8 @@ namespace AICodeActions.Core
                 var stopwatch = Stopwatch.StartNew();
                 string toolResult = ExecuteToolWithValidation(toolName, parameters);
                 stopwatch.Stop();
-                toolExecutionTimes.Add(stopwatch.Elapsed.TotalSeconds);
+                var elapsed = stopwatch.Elapsed.TotalSeconds;
+                toolExecutionTimes.Add(elapsed);
                 
                 // Track context from tool execution
                 UpdateContext(toolName, parameters, toolResult);
