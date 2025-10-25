@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using AICodeActions.Core;
 using UnityEngine;
@@ -257,13 +258,14 @@ namespace AICodeActions.Providers
             return sb.ToString();
         }
         
-        public Task StreamGenerateAsync(
+        public async Task StreamGenerateAsync(
             string prompt,
             ModelParameters parameters,
             Action<StreamChunk> onChunk,
             CancellationToken cancellationToken = default)
         {
             // Streaming not implemented for OpenRouter - use non-streaming GenerateAsync instead
+            await Task.CompletedTask; // Suppress async warning
             throw new NotImplementedException("OpenRouter streaming is disabled. Use GenerateAsync instead.");
         }
     }
