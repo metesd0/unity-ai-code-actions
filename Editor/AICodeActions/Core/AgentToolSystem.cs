@@ -873,10 +873,6 @@ namespace AICodeActions.Core
                 return response;
             }
             
-            // Compact header
-            result.AppendLine("🤖 **AI Agent** (Live Execution)");
-            result.AppendLine();
-            
             // Only show full AI response in Detailed mode
             if (detailLevel == "Detailed")
             {
@@ -884,9 +880,6 @@ namespace AICodeActions.Core
                 detailedLog.AppendLine(response);
                 detailedLog.AppendLine();
             }
-            
-            // Notify start
-            progressCallback?.Invoke(result.ToString());
             
             // Find all tool calls in format [TOOL:name]...[/TOOL]
             int startIndex = 0;
@@ -912,12 +905,8 @@ namespace AICodeActions.Core
                 
                 toolCount++;
                 
-                // COMPACT VIEW: One line per tool
-                var paramSummary = GetParameterSummary(parameters, toolName);
-                result.AppendLine($"⏳ **{toolCount}.** {toolName}: {paramSummary}");
-                
-                // Update UI with progress (show tool starting)
-                progressCallback?.Invoke(result.ToString());
+                // Live progress update - ULTRA SHORT: just icon + name
+                progressCallback?.Invoke($"⚡ {toolName}()");
                 
                 // Execute tool and measure time (thread-safe)
                 var stopwatch = Stopwatch.StartNew();
@@ -935,8 +924,12 @@ namespace AICodeActions.Core
                               toolResult.Contains("⚠️") ? "⚠️" : "✅";
                 
                 string compactResult = GetCompactResult(toolResult);
+                var paramSummary = GetParameterSummary(parameters, toolName);
                 
-                // DETAILED LOG: Format based on detail level
+                // Progress callback - ULTRA SHORT completion message
+                progressCallback?.Invoke($"{icon} {toolName}()");
+                
+                // DETAILED LOG: Format based on detail level (for final report)
                 if (detailLevel == "Compact")
                 {
                     // COMPACT: Just show tool name + compact result
@@ -972,23 +965,30 @@ namespace AICodeActions.Core
                     detailedLog.AppendLine();
                 }
                 
-                // Update UI after each tool with final status
-                progressCallback?.Invoke(result.ToString());
-                
                 startIndex = toolEnd + 7;
             }
             
-            // Summary footer
-            result.AppendLine();
+            // Final summary - COMPACT or with details
             double totalTime = toolExecutionTimes.Count > 0 ? toolExecutionTimes.Sum() : 0;
-            result.AppendLine($"✅ **Completed {toolCount} tool(s)** in {totalTime:F2}s");
-            result.AppendLine();
-            result.AppendLine($"<details><summary>📊 Show Detailed Execution Log</summary>");
-            result.AppendLine();
-            result.AppendLine(detailedLog.ToString());
-            result.AppendLine("</details>");
             
-            return result.ToString();
+            if (detailLevel == "Compact")
+            {
+                // ULTRA SHORT: Just show count + time
+                return $"✅ {toolCount} tool(s) in {totalTime:F1}s";
+            }
+            else
+            {
+                // Show detailed log in collapsible section
+                result.AppendLine();
+                result.AppendLine($"✅ **Completed {toolCount} tool(s)** in {totalTime:F2}s");
+                result.AppendLine();
+                result.AppendLine($"<details><summary>📊 Show Detailed Execution Log</summary>");
+                result.AppendLine();
+                result.AppendLine(detailedLog.ToString());
+                result.AppendLine("</details>");
+                
+                return result.ToString();
+            }
         }
         
         /// <summary>
