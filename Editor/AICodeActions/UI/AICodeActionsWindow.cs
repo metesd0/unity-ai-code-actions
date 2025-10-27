@@ -39,7 +39,8 @@ namespace AICodeActions.UI
         private string resultCode = "";
         private string explanation = "";
         private bool showDiff = false;
-        private List<DiffViewer.DiffLine> currentDiff;
+        private DiffViewer.DiffResult currentDiff;
+        private DiffViewer diffViewer = new DiffViewer();
         
         private Vector2 scrollPos;
         private Vector2 resultScrollPos;
@@ -345,12 +346,12 @@ namespace AICodeActions.UI
             oldStyle.richText = true;
             oldStyle.font = Font.CreateDynamicFontFromOSFont("Consolas", 11);
 
-            foreach (var line in currentDiff)
+            foreach (var line in currentDiff.lines)
             {
                 Color bgColor = line.type switch
                 {
                     DiffViewer.DiffType.Added => new Color(0.2f, 0.8f, 0.2f, 0.2f),
-                    DiffViewer.DiffType.Removed => new Color(0.8f, 0.2f, 0.2f, 0.2f),
+                    DiffViewer.DiffType.Deleted => new Color(0.8f, 0.2f, 0.2f, 0.2f),
                     _ => Color.clear
                 };
 
@@ -363,7 +364,7 @@ namespace AICodeActions.UI
                 string prefix = line.type switch
                 {
                     DiffViewer.DiffType.Added => "+ ",
-                    DiffViewer.DiffType.Removed => "- ",
+                    DiffViewer.DiffType.Deleted => "- ",
                     _ => "  "
                 };
 
@@ -372,7 +373,7 @@ namespace AICodeActions.UI
 
             EditorGUILayout.EndScrollView();
             
-            GUILayout.Label(DiffViewer.GetDiffSummary(currentDiff), EditorStyles.miniLabel);
+            GUILayout.Label(currentDiff.GetSummary(), EditorStyles.miniLabel);
         }
 
         private void DrawStatusBar()
@@ -504,7 +505,7 @@ namespace AICodeActions.UI
             if (string.IsNullOrEmpty(selectedCode) || string.IsNullOrEmpty(resultCode))
                 return;
 
-            currentDiff = DiffViewer.GenerateDiff(selectedCode, resultCode);
+            currentDiff = diffViewer.ComputeDiff(selectedCode, resultCode);
         }
 
         private void ReindexProject()

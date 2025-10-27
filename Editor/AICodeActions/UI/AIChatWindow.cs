@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -731,8 +732,10 @@ namespace AICodeActions.UI
                     string toolName = match.Groups[1].Value;
                     string toolContent = match.Groups[2].Value.Trim();
                     
+                    // Create ToolCall object
+                    var toolCall = new ToolCallVisualizer.ToolCall(toolName);
+                    
                     // Parse parameters
-                    var parameters = new Dictionary<string, string>();
                     var paramLines = toolContent.Split('\n');
                     foreach (var line in paramLines)
                     {
@@ -741,19 +744,25 @@ namespace AICodeActions.UI
                         {
                             string key = line.Substring(0, colonIndex).Trim();
                             string value = line.Substring(colonIndex + 1).Trim();
-                            parameters[key] = value;
+                            toolCall.parameters[key] = value;
                         }
                     }
                     
                     // Check if tool execution result is in the content
-                    string result = "Executed";
                     var resultMatch = Regex.Match(toolContent, @"Result:\s*(.+)", RegexOptions.Singleline);
                     if (resultMatch.Success)
                     {
-                        result = resultMatch.Groups[1].Value.Trim();
+                        toolCall.result = resultMatch.Groups[1].Value.Trim();
+                        toolCall.status = ToolCallVisualizer.ToolStatus.Success;
+                    }
+                    else
+                    {
+                        toolCall.result = "Executed";
+                        toolCall.status = ToolCallVisualizer.ToolStatus.Success;
                     }
                     
-                    toolVisualizer.Draw(toolName, parameters, result, ToolCallStatus.Success);
+                    // Draw the tool call
+                    toolVisualizer.DrawToolCall(toolCall);
                     
                     lastIndex = match.Index + match.Length;
                 }
@@ -820,8 +829,9 @@ namespace AICodeActions.UI
                                     Match nextMatch = codeBlockMatches[matchIndex + 1];
                                     string afterCode = nextMatch.Groups[1].Value.Trim();
                                     
-                                    // Draw diff viewer
-                                    diffViewer.Draw(beforeCode, afterCode);
+                                    // Compute and draw diff viewer
+                                    var diffResult = diffViewer.ComputeDiff(beforeCode, afterCode);
+                                    diffViewer.DrawDiff(diffResult, "Code Changes");
                                     
                                     // Draw text between Before and After
                                     EditorGUILayout.LabelField(betweenText, EditorStyles.wordWrappedLabel);
