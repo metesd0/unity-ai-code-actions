@@ -52,22 +52,27 @@ namespace AICodeActions.Core
                 result.AppendLine();
 
                 // Read recent messages (from end, newest first)
-                int readCount = Math.Min(count, totalCount);
-                int errorCount = 0;
-                int warningCount = 0;
-                int logCount = 0;
+            int readCount = Math.Min(count, totalCount);
+            int errorCount = 0;
+            int warningCount = 0;
+            int logCount = 0;
 
-                // Get LogEntry type for reflection
-                var logEntryType = typeof(UnityEditor.LogEntry);
-                var modeField = logEntryType.GetField("mode", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                var messageField = logEntryType.GetField("message", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                var fileField = logEntryType.GetField("file", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                var lineField = logEntryType.GetField("line", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            // Get LogEntry type for reflection (it's also internal!)
+            var logEntryType = typeof(EditorWindow).Assembly.GetType("UnityEditor.LogEntry");
+            if (logEntryType == null)
+            {
+                return "❌ LogEntry type not found (Unity internal API changed).";
+            }
 
-                for (int i = totalCount - readCount; i < totalCount; i++)
-                {
-                    var entry = new UnityEditor.LogEntry();
-                    getEntryInternalMethod.Invoke(null, new object[] { i, entry });
+            var modeField = logEntryType.GetField("mode", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var messageField = logEntryType.GetField("message", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var fileField = logEntryType.GetField("file", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var lineField = logEntryType.GetField("line", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            for (int i = totalCount - readCount; i < totalCount; i++)
+            {
+                var entry = Activator.CreateInstance(logEntryType);
+                getEntryInternalMethod.Invoke(null, new object[] { i, entry });
 
                     // Get fields via reflection
                     int mode = modeField != null ? (int)modeField.GetValue(entry) : 0;
