@@ -16,6 +16,7 @@ namespace AICodeActions.Core
         public delegate string ToolFunction(Dictionary<string, string> parameters);
         
         private Dictionary<string, ToolInfo> availableTools = new Dictionary<string, ToolInfo>();
+        private ToolResultInterceptor interceptor;
         
         // Context tracking for better AI understanding
         public string LastCreatedScript { get; private set; } = "";
@@ -27,6 +28,7 @@ namespace AICodeActions.Core
         public AgentToolSystem()
         {
             RegisterDefaultTools();
+            interceptor = new ToolResultInterceptor(this);
         }
         
         private void RegisterDefaultTools()
@@ -927,6 +929,35 @@ namespace AICodeActions.Core
                 stopwatch.Stop();
                 var elapsed = stopwatch.Elapsed.TotalSeconds;
                 toolExecutionTimes.Add(elapsed);
+                
+                // 🤖 INTERCEPT RESULT: Auto-analyze and execute follow-up actions
+                var paramsDict = parameters.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+                var interceptionResult = interceptor.InterceptResult(toolName, toolResult, paramsDict);
+                
+                // Execute auto-actions (e.g., auto-check compilation after script creation)
+                foreach (var autoAction in interceptionResult.AutoExecuteActions)
+                {
+                    if (autoAction.Priority == ToolActionPriority.Critical)
+                    {
+                        toolCount++;
+                        progressCallback?.Invoke($"🤖 {autoAction.ToolName}()");
+                        
+                        var autoStopwatch = Stopwatch.StartNew();
+                        var autoParams = autoAction.Parameters.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
+                        string autoResult = ExecuteToolWithValidation(autoAction.ToolName, autoParams);
+                        autoStopwatch.Stop();
+                        var autoElapsed = autoStopwatch.Elapsed.TotalSeconds;
+                        toolExecutionTimes.Add(autoElapsed);
+                        
+                        // Append auto-check result to detailed log
+                        detailedLog.AppendLine($"**{toolCount}.** `{autoAction.ToolName}` 🤖 {autoAction.Reason} ({autoElapsed:F3}s)");
+                        detailedLog.AppendLine(autoResult);
+                        detailedLog.AppendLine();
+                    }
+                }
+                
+                // Use enriched result instead of raw result
+                toolResult = interceptor.FormatEnrichedResult(interceptionResult);
                 
                 // Track context from tool execution
                 UpdateContext(toolName, parameters, toolResult);

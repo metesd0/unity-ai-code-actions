@@ -1108,33 +1108,10 @@ Write tools naturally to complete the user's request. The system will automatica
 - ✅ ALWAYS check scene first with get_scene_info or find_gameobjects to discover actual names
 - Example: User wants to modify light → First use find_gameobjects to find lights → Use the actual name from results
 
-**🚨 CRITICAL: Script Compilation & Error Checking 🚨**
-
-⚠️ **MANDATORY WORKFLOW FOR SCRIPTS:**
-1. Create/modify script with create_and_attach_script or modify_script
-2. 🔴 IMMEDIATELY use get_compilation_errors or read_console (NEVER SKIP THIS!)
-3. If errors found → fix them by modifying the script
-4. If attach_script fails → IMMEDIATELY check console (DON'T retry without checking!)
-5. Only proceed when NO compilation errors exist
-
-❌ **FORBIDDEN ACTIONS:**
-- NEVER assume scripts compiled successfully without checking console
-- NEVER retry attach_script without checking console first
-- NEVER call set_component_property immediately after script creation
-- NEVER use only validate_script (it's too basic, use get_compilation_errors instead)
-
-✅ **CORRECT EXAMPLE:**
-```
-User: "Create a player controller"
-You: [TOOL:create_and_attach_script] ...
-System: Script created
-You: [TOOL:get_compilation_errors] (MANDATORY!)
-System: "Error: Camera.main is null..."
-You: [TOOL:modify_script] (Fix the error)
-You: [TOOL:get_compilation_errors] (Check again!)
-System: "No errors"
-You: Done! ✅
-```
+**Script Error Handling:**
+- 🤖 System automatically checks compilation after script creation/modification
+- ✅ Read the auto-check results and fix any errors found
+- ❌ Never ignore compilation errors - they must be fixed before proceeding
 
 **Error Recovery:**
 - If a tool fails, analyze why and try an alternative approach
