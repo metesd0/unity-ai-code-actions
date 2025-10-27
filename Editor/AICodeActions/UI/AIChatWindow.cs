@@ -79,6 +79,12 @@ namespace AICodeActions.UI
         private GUIStyle systemMessageStyle;
         private GUIStyle codeBlockStyle;
         
+        // NEW: Advanced UI Components
+        private ToolCallVisualizer toolVisualizer;
+        private MultiFileContextManager fileContextManager;
+        private DiffViewer diffViewer;
+        private bool showFileContext = false;
+        
         [MenuItem("Window/AI Chat")]
         public static void ShowWindow()
         {
@@ -99,9 +105,20 @@ namespace AICodeActions.UI
             LoadPreferencesFromMainWindow();
             agentTools = new AgentToolSystem();
             
+            // Initialize Long-term Memory
+            UnityAgentTools.InitializeMemory(maxMemories: 1000);
+            
+            // Initialize ReAct agent
+            InitializeReActAgent();
+            
             // Initialize streaming manager
             streamManager = new StreamManager();
             EditorApplication.update += OnEditorUpdate; // Subscribe to Unity update loop
+            
+            // Initialize UI components
+            toolVisualizer = new ToolCallVisualizer();
+            fileContextManager = new MultiFileContextManager();
+            diffViewer = new DiffViewer();
             
             // Load conversation history
             LoadConversation();
@@ -718,9 +735,16 @@ namespace AICodeActions.UI
                         }
                     }
                     
-                    // Draw code block
+                    // Draw code block with syntax highlighting
                     string code = match.Groups[1].Value.Trim();
-                    EditorGUILayout.LabelField(code, codeBlockStyle);
+                    string highlightedCode = SyntaxHighlighter.ApplyHighlighting(code, "csharp");
+                    
+                    // Draw with rich text support
+                    var richTextStyle = new GUIStyle(codeBlockStyle)
+                    {
+                        richText = true
+                    };
+                    EditorGUILayout.LabelField(highlightedCode, richTextStyle);
                     
                     // Copy button
                     if (GUILayout.Button("📋 Copy Code", GUILayout.Height(20)))
@@ -753,11 +777,42 @@ namespace AICodeActions.UI
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             
+            // File Context toggle
+            EditorGUILayout.BeginHorizontal();
+            showFileContext = EditorGUILayout.Toggle("📎 Multi-File Context", showFileContext, GUILayout.Width(180));
+            
+            if (fileContextManager.FileCount > 0)
+            {
+                GUILayout.Label($"({fileContextManager.FileCount} files)", EditorStyles.miniLabel);
+            }
+            
+            GUILayout.FlexibleSpace();
+            
+            if (GUILayout.Button("➕ Add Selection", GUILayout.Width(100)))
+            {
+                int added = fileContextManager.AddSelection();
+                if (added > 0)
+                {
+                    Debug.Log($"Added {added} file(s) to context");
+                    showFileContext = true;
+                }
+            }
+            
+            EditorGUILayout.EndHorizontal();
+            
+            // Show file context if enabled
+            if (showFileContext)
+            {
+                fileContextManager.DrawFileContext();
+            }
+            
             // Drag & Drop area
             Rect dropArea = GUILayoutUtility.GetRect(0, 30, GUILayout.ExpandWidth(true));
             GUI.Box(dropArea, "📎 Drop files/objects here or type below", EditorStyles.helpBox);
             
-            HandleDragAndDrop(dropArea);
+            // Handle drag & drop for multi-file context
+            fileContextManager.HandleDragAndDrop(dropArea);
+            HandleDragAndDrop(dropArea); // Keep legacy support
             
             GUILayout.Label("Your Message:", EditorStyles.miniLabel);
             
@@ -895,6 +950,21 @@ namespace AICodeActions.UI
                 // Build prompt with conversation context and tools (if agent mode)
                 string contextPrompt = conversation.GetContextString();
                 string toolsInfo = agentMode ? agentTools.GetToolsDescription() : "";
+                
+                // Add multi-file context if files are attached
+                string fileContext = "";
+                if (fileContextManager.FileCount > 0)
+                {
+                    fileContext = "\n\n" + fileContextManager.GetContextSummary();
+                    contextPrompt += fileContext;
+                }
+                
+                // Add long-term memory context
+                string memoryContext = UnityAgentTools.GetMemoryContext(maxItems: 5);
+                if (!string.IsNullOrEmpty(memoryContext))
+                {
+                    contextPrompt += "\n\n" + memoryContext;
+                }
                 
                 string systemPrompt = "You are an expert Unity AI assistant.";
                 if (agentMode)
@@ -1674,6 +1744,31 @@ parameter2: value2
                 userInput += $"\n📄 File: `{fileName}` (Path: {path})\n";
                 conversation.AddSystemMessage($"📎 Attached file reference: {fileName} - AI can read it with 'read_file' tool");
                 Repaint();
+            }
+        }
+        
+        /// <summary>
+        /// Initialize ReAct agent with current tool system
+        /// </summary>
+        private void InitializeReActAgent()
+        {
+            try
+            {
+                if (agentTools != null && currentProvider != null)
+                {
+                    // Initialize Self-Correction Engine
+                    UnityAgentTools.InitializeSelfCorrection(agentTools, maxRetries: 3);
+                    
+                    // Initialize ReAct Agent with self-correction enabled
+                    var reactAgent = new ReActAgent(agentTools, currentProvider, enableSelfCorrection: true);
+                    UnityAgentTools.SetReActAgent(reactAgent);
+                    
+                    Debug.Log("[AIChatWindow] ReAct agent initialized with self-correction");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[AIChatWindow] Failed to initialize ReAct agent: {e.Message}");
             }
         }
     }

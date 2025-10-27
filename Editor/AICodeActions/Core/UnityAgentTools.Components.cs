@@ -424,6 +424,389 @@ namespace AICodeActions.Core
                 return $"❌ Error creating script: {e.Message}\n{e.StackTrace}";
             }
         }
+        
+        /// <summary>
+        /// Remove a component from a GameObject
+        /// </summary>
+        public static string RemoveComponent(string gameObjectName, string componentType)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                // Find component
+                Component component = null;
+                var components = go.GetComponents<Component>();
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == componentType)
+                    {
+                        component = comp;
+                        break;
+                    }
+                }
+                
+                if (component == null)
+                    return $"❌ Component '{componentType}' not found on {gameObjectName}";
+                
+                // Prevent removing Transform
+                if (component is Transform)
+                    return $"❌ Cannot remove Transform component - it's required!";
+                
+                // Record undo and destroy
+                Undo.DestroyObjectImmediate(component);
+                
+                Debug.Log($"[RemoveComponent] Removed {componentType} from {gameObjectName}");
+                Selection.activeGameObject = go;
+                
+                return $"✅ Removed {componentType} from {gameObjectName}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[RemoveComponent] Error: {e}");
+                return $"❌ Error removing component: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Enable or disable a component
+        /// </summary>
+        public static string EnableComponent(string gameObjectName, string componentType, bool enabled)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                // Find component
+                Component component = null;
+                var components = go.GetComponents<Component>();
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == componentType)
+                    {
+                        component = comp;
+                        break;
+                    }
+                }
+                
+                if (component == null)
+                    return $"❌ Component '{componentType}' not found on {gameObjectName}";
+                
+                // Check if component is a Behaviour (has enabled property)
+                if (component is Behaviour behaviour)
+                {
+                    Undo.RecordObject(behaviour, $"{(enabled ? "Enable" : "Disable")} {componentType}");
+                    behaviour.enabled = enabled;
+                    EditorUtility.SetDirty(behaviour);
+                }
+                else if (component is Renderer renderer)
+                {
+                    Undo.RecordObject(renderer, $"{(enabled ? "Enable" : "Disable")} {componentType}");
+                    renderer.enabled = enabled;
+                    EditorUtility.SetDirty(renderer);
+                }
+                else if (component is Collider collider)
+                {
+                    Undo.RecordObject(collider, $"{(enabled ? "Enable" : "Disable")} {componentType}");
+                    collider.enabled = enabled;
+                    EditorUtility.SetDirty(collider);
+                }
+                else
+                {
+                    return $"❌ Component '{componentType}' does not have an 'enabled' property";
+                }
+                
+                Debug.Log($"[EnableComponent] {(enabled ? "Enabled" : "Disabled")} {componentType} on {gameObjectName}");
+                Selection.activeGameObject = go;
+                
+                return $"✅ {(enabled ? "Enabled" : "Disabled")} {componentType} on {gameObjectName}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[EnableComponent] Error: {e}");
+                return $"❌ Error {(enabled ? "enabling" : "disabling")} component: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Copy a component from one GameObject to another
+        /// </summary>
+        public static string CopyComponent(string sourceGameObjectName, string targetGameObjectName, string componentType)
+        {
+            try
+            {
+                var sourceGo = GameObject.Find(sourceGameObjectName);
+                if (sourceGo == null)
+                    return $"❌ Source GameObject '{sourceGameObjectName}' not found";
+                
+                var targetGo = GameObject.Find(targetGameObjectName);
+                if (targetGo == null)
+                    return $"❌ Target GameObject '{targetGameObjectName}' not found";
+                
+                // Find source component
+                Component sourceComponent = null;
+                var components = sourceGo.GetComponents<Component>();
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == componentType)
+                    {
+                        sourceComponent = comp;
+                        break;
+                    }
+                }
+                
+                if (sourceComponent == null)
+                    return $"❌ Component '{componentType}' not found on {sourceGameObjectName}";
+                
+                // Check if target already has this component
+                if (targetGo.GetComponent(sourceComponent.GetType()) != null)
+                {
+                    return $"ℹ️ Component '{componentType}' already exists on {targetGameObjectName}. Use remove_component first if you want to replace it.";
+                }
+                
+                // Copy component using Unity's component copy functionality
+                UnityEditorInternal.ComponentUtility.CopyComponent(sourceComponent);
+                bool success = UnityEditorInternal.ComponentUtility.PasteComponentAsNew(targetGo);
+                
+                if (!success)
+                    return $"❌ Failed to copy component '{componentType}'";
+                
+                Debug.Log($"[CopyComponent] Copied {componentType} from {sourceGameObjectName} to {targetGameObjectName}");
+                Selection.activeGameObject = targetGo;
+                
+                return $"✅ Copied {componentType} from {sourceGameObjectName} to {targetGameObjectName}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CopyComponent] Error: {e}");
+                return $"❌ Error copying component: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Reset a component to default values
+        /// </summary>
+        public static string ResetComponent(string gameObjectName, string componentType)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                // Find component
+                Component component = null;
+                var components = go.GetComponents<Component>();
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == componentType)
+                    {
+                        component = comp;
+                        break;
+                    }
+                }
+                
+                if (component == null)
+                    return $"❌ Component '{componentType}' not found on {gameObjectName}";
+                
+                // Use Unity's built-in reset functionality
+                Undo.RecordObject(component, $"Reset {componentType}");
+                
+                // Get default values by creating a temporary GameObject
+                var tempGo = new GameObject("TempResetObject");
+                var defaultComponent = tempGo.AddComponent(component.GetType());
+                
+                // Copy serialized properties from default to actual component
+                var serializedDefault = new SerializedObject(defaultComponent);
+                var serializedActual = new SerializedObject(component);
+                
+                var prop = serializedDefault.GetIterator();
+                while (prop.NextVisible(true))
+                {
+                    // Skip script reference
+                    if (prop.name == "m_Script") continue;
+                    
+                    var actualProp = serializedActual.FindProperty(prop.name);
+                    if (actualProp != null)
+                    {
+                        serializedActual.CopyFromSerializedProperty(prop);
+                    }
+                }
+                
+                serializedActual.ApplyModifiedProperties();
+                
+                // Cleanup
+                UnityEngine.Object.DestroyImmediate(tempGo);
+                
+                EditorUtility.SetDirty(component);
+                Debug.Log($"[ResetComponent] Reset {componentType} on {gameObjectName}");
+                Selection.activeGameObject = go;
+                
+                return $"✅ Reset {componentType} on {gameObjectName} to default values";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[ResetComponent] Error: {e}");
+                return $"❌ Error resetting component: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Set multiple properties on a component at once (batch operation)
+        /// </summary>
+        public static string SetMultipleProperties(string gameObjectName, string componentType, string propertiesJson)
+        {
+            try
+            {
+                var go = GameObject.Find(gameObjectName);
+                if (go == null)
+                    return $"❌ GameObject '{gameObjectName}' not found";
+                
+                // Find component
+                Component component = null;
+                var components = go.GetComponents<Component>();
+                
+                foreach (var comp in components)
+                {
+                    if (comp != null && comp.GetType().Name == componentType)
+                    {
+                        component = comp;
+                        break;
+                    }
+                }
+                
+                if (component == null)
+                    return $"❌ Component '{componentType}' not found on {gameObjectName}";
+                
+                Undo.RecordObject(component, $"Set Multiple Properties on {componentType}");
+                
+                // Parse JSON properties (simple key:value format)
+                // Expected format: "property1:value1,property2:value2,property3:value3"
+                var properties = propertiesJson.Split(',');
+                var results = new System.Text.StringBuilder();
+                results.AppendLine($"📋 Setting {properties.Length} properties on {componentType}:");
+                
+                int successCount = 0;
+                int failCount = 0;
+                
+                foreach (var propPair in properties)
+                {
+                    var parts = propPair.Split(':');
+                    if (parts.Length != 2)
+                    {
+                        results.AppendLine($"  ⚠️ Invalid format: {propPair}");
+                        failCount++;
+                        continue;
+                    }
+                    
+                    string propertyName = parts[0].Trim();
+                    string value = parts[1].Trim();
+                    
+                    // Reuse SetComponentProperty logic for each property
+                    var type = component.GetType();
+                    var field = type.GetField(propertyName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    var property = type.GetProperty(propertyName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    
+                    if (field == null && property == null)
+                    {
+                        results.AppendLine($"  ❌ {propertyName}: Property not found");
+                        failCount++;
+                        continue;
+                    }
+                    
+                    try
+                    {
+                        var fieldOrPropertyType = field != null ? field.FieldType : property.PropertyType;
+                        object convertedValue = ConvertValueToType(value, fieldOrPropertyType);
+                        
+                        if (field != null)
+                            field.SetValue(component, convertedValue);
+                        else
+                            property.SetValue(component, convertedValue);
+                        
+                        results.AppendLine($"  ✅ {propertyName} = {value}");
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        results.AppendLine($"  ❌ {propertyName}: {ex.Message}");
+                        failCount++;
+                    }
+                }
+                
+                EditorUtility.SetDirty(component);
+                Selection.activeGameObject = go;
+                
+                results.AppendLine();
+                results.AppendLine($"📊 Results: ✅ {successCount} success, ❌ {failCount} failed");
+                
+                return results.ToString();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SetMultipleProperties] Error: {e}");
+                return $"❌ Error setting multiple properties: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Helper: Convert string value to target type
+        /// </summary>
+        private static object ConvertValueToType(string value, Type targetType)
+        {
+            if (targetType == typeof(float))
+                return float.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+            if (targetType == typeof(int))
+                return int.Parse(value);
+            if (targetType == typeof(bool))
+                return bool.Parse(value);
+            if (targetType == typeof(string))
+                return value;
+            if (targetType == typeof(Vector3))
+            {
+                string cleanValue = value.Replace("(", "").Replace(")", "").Trim();
+                var parts = cleanValue.Split(',');
+                return new Vector3(
+                    float.Parse(parts[0].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+                    float.Parse(parts[1].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+                    float.Parse(parts[2].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+            }
+            if (targetType == typeof(Color))
+            {
+                if (value.StartsWith("#"))
+                {
+                    ColorUtility.TryParseHtmlString(value, out Color color);
+                    return color;
+                }
+                return value.ToLower() switch
+                {
+                    "red" => Color.red,
+                    "green" => Color.green,
+                    "blue" => Color.blue,
+                    "white" => Color.white,
+                    "black" => Color.black,
+                    "yellow" => Color.yellow,
+                    "cyan" => Color.cyan,
+                    "magenta" => Color.magenta,
+                    _ => Color.gray
+                };
+            }
+            if (targetType == typeof(Transform) || targetType == typeof(GameObject))
+            {
+                var targetGo = GameObject.Find(value);
+                return targetType == typeof(Transform) ? (object)targetGo?.transform : (object)targetGo;
+            }
+            
+            throw new NotSupportedException($"Type {targetType.Name} is not supported");
+        }
     }
 }
 

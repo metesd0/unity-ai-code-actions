@@ -786,6 +786,594 @@ public class {scriptName} : ScriptableObject
                 return $"❌ Error adding namespace: {e.Message}";
             }
         }
+        
+        /// <summary>
+        /// Modify an existing method in a script
+        /// </summary>
+        public static string ModifyMethod(string scriptName, string methodName, string newMethodBody)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                
+                // Find method using regex
+                var methodPattern = $@"(public|private|protected|internal)\s+(\w+\s+)?{methodName}\s*\([^\)]*\)\s*\{{";
+                var match = System.Text.RegularExpressions.Regex.Match(content, methodPattern);
+                
+                if (!match.Success)
+                    return $"❌ Method '{methodName}' not found in {scriptName}.cs";
+                
+                int methodStart = match.Index;
+                
+                // Find method end (matching braces)
+                int braceCount = 1;
+                int methodBodyStart = content.IndexOf('{', methodStart) + 1;
+                int methodEnd = methodBodyStart;
+                
+                for (int i = methodBodyStart; i < content.Length && braceCount > 0; i++)
+                {
+                    if (content[i] == '{') braceCount++;
+                    if (content[i] == '}') braceCount--;
+                    methodEnd = i;
+                }
+                
+                if (braceCount != 0)
+                    return $"❌ Could not find method end - brace mismatch";
+                
+                // Extract method signature
+                string methodSignature = content.Substring(methodStart, methodBodyStart - methodStart);
+                
+                // Build new method
+                string newMethod = methodSignature + "\n" + newMethodBody + "\n    }";
+                
+                // Replace method
+                string beforeMethod = content.Substring(0, methodStart);
+                string afterMethod = content.Substring(methodEnd + 1);
+                string newContent = beforeMethod + newMethod + afterMethod;
+                
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Method not modified.\n{roslynReport}";
+                }
+                
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[ModifyMethod] Modified method '{methodName}' in {scriptName}.cs");
+                
+                return $"✅ Modified method '{methodName}' in {scriptName}.cs\nℹ️ {roslynReport}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error modifying method: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Delete a method from a script
+        /// </summary>
+        public static string DeleteMethod(string scriptName, string methodName)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                
+                // Find method using regex
+                var methodPattern = $@"(public|private|protected|internal)\s+(\w+\s+)?{methodName}\s*\([^\)]*\)\s*\{{";
+                var match = System.Text.RegularExpressions.Regex.Match(content, methodPattern);
+                
+                if (!match.Success)
+                    return $"❌ Method '{methodName}' not found in {scriptName}.cs";
+                
+                int methodStart = match.Index;
+                
+                // Find method end (matching braces)
+                int braceCount = 1;
+                int methodBodyStart = content.IndexOf('{', methodStart) + 1;
+                int methodEnd = methodBodyStart;
+                
+                for (int i = methodBodyStart; i < content.Length && braceCount > 0; i++)
+                {
+                    if (content[i] == '{') braceCount++;
+                    if (content[i] == '}') braceCount--;
+                    methodEnd = i;
+                }
+                
+                if (braceCount != 0)
+                    return $"❌ Could not find method end - brace mismatch";
+                
+                // Remove method (including signature)
+                string beforeMethod = content.Substring(0, methodStart);
+                string afterMethod = content.Substring(methodEnd + 1);
+                string newContent = beforeMethod + afterMethod;
+                
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Method not deleted.\n{roslynReport}";
+                }
+                
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[DeleteMethod] Deleted method '{methodName}' from {scriptName}.cs");
+                
+                return $"✅ Deleted method '{methodName}' from {scriptName}.cs\nℹ️ {roslynReport}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error deleting method: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Rename a method in a script
+        /// </summary>
+        public static string RenameMethod(string scriptName, string oldMethodName, string newMethodName)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                
+                // Use regex to find and replace method name in signature
+                var methodPattern = $@"(public|private|protected|internal)\s+(\w+\s+){oldMethodName}\s*\(";
+                var newContent = System.Text.RegularExpressions.Regex.Replace(content, methodPattern, 
+                    m => m.Value.Replace(oldMethodName, newMethodName));
+                
+                if (newContent == content)
+                    return $"❌ Method '{oldMethodName}' not found in {scriptName}.cs";
+                
+                // Also replace method calls (simple text replace for now)
+                newContent = newContent.Replace($"{oldMethodName}(", $"{newMethodName}(");
+                
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Method not renamed.\n{roslynReport}";
+                }
+                
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[RenameMethod] Renamed method '{oldMethodName}' to '{newMethodName}' in {scriptName}.cs");
+                
+                return $"✅ Renamed method '{oldMethodName}' to '{newMethodName}' in {scriptName}.cs\nℹ️ {roslynReport}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error renaming method: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Create a property with get/set in a script
+        /// </summary>
+        public static string CreateProperty(string scriptName, string propertyType, string propertyName, string getBody = null, string setBody = null)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                
+                // Build property code
+                string propertyCode;
+                if (string.IsNullOrEmpty(getBody) && string.IsNullOrEmpty(setBody))
+                {
+                    // Auto-property
+                    propertyCode = $"public {propertyType} {propertyName} {{ get; set; }}";
+                }
+                else
+                {
+                    // Custom get/set
+                    propertyCode = $@"public {propertyType} {propertyName}
+    {{
+        get
+        {{
+            {getBody ?? "return default;"}
+        }}
+        set
+        {{
+            {setBody ?? ""}
+        }}
+    }}";
+                }
+                
+                // Find first opening brace (class start)
+                int firstBrace = content.IndexOf('{');
+                if (firstBrace == -1)
+                    return $"❌ Invalid script structure - no opening brace found";
+                
+                // Insert property after the first opening brace
+                string indent = "    "; // 4 spaces
+                string formattedProperty = "\n" + indent + propertyCode.Replace("\n", "\n" + indent) + "\n";
+                string newContent = content.Insert(firstBrace + 1, formattedProperty);
+                
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Property not added.\n{roslynReport}";
+                }
+                
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[CreateProperty] Added property '{propertyName}' to {scriptName}.cs");
+                
+                return $"✅ Added property '{propertyName}' to {scriptName}.cs\nℹ️ {roslynReport}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error creating property: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Add interface implementation to a class
+        /// </summary>
+        public static string AddInterface(string scriptName, string interfaceName)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                
+                // Find class declaration
+                var classPattern = $@"class\s+{scriptName}\s*(:.*?)?\s*\{{";
+                var match = System.Text.RegularExpressions.Regex.Match(content, classPattern);
+                
+                if (!match.Success)
+                    return $"❌ Class '{scriptName}' not found in script";
+                
+                string classDeclaration = match.Value;
+                string newClassDeclaration;
+                
+                if (classDeclaration.Contains(":"))
+                {
+                    // Already has inheritance/interfaces
+                    newClassDeclaration = classDeclaration.Replace("{", $", {interfaceName}\n{{");
+                }
+                else
+                {
+                    // No inheritance yet
+                    newClassDeclaration = classDeclaration.Replace("{", $" : {interfaceName}\n{{");
+                }
+                
+                string newContent = content.Replace(classDeclaration, newClassDeclaration);
+                
+                if (!RoslynScriptAnalyzer.TryValidate(newContent, out var roslynReport))
+                {
+                    return $"❌ Roslyn validation failed. Interface not added.\n{roslynReport}\n💡 You may need to implement interface members manually.";
+                }
+                
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[AddInterface] Added interface '{interfaceName}' to {scriptName}.cs");
+                
+                return $"✅ Added interface '{interfaceName}' to {scriptName}.cs\n⚠️ Don't forget to implement interface members!\nℹ️ {roslynReport}";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error adding interface: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Add using statement to a script
+        /// </summary>
+        public static string AddUsingStatement(string scriptName, string namespaceName)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                
+                // Check if using statement already exists
+                string usingStatement = $"using {namespaceName};";
+                if (content.Contains(usingStatement))
+                    return $"ℹ️ Using statement 'using {namespaceName};' already exists in {scriptName}.cs";
+                
+                // Find last using statement
+                var lines = content.Split('\n').ToList();
+                int lastUsingIndex = -1;
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    if (lines[i].Trim().StartsWith("using "))
+                        lastUsingIndex = i;
+                }
+                
+                if (lastUsingIndex >= 0)
+                {
+                    // Add after last using
+                    lines.Insert(lastUsingIndex + 1, usingStatement);
+                }
+                else
+                {
+                    // No using statements, add at beginning
+                    lines.Insert(0, usingStatement);
+                }
+                
+                string newContent = string.Join("\n", lines);
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[AddUsingStatement] Added 'using {namespaceName};' to {scriptName}.cs");
+                
+                return $"✅ Added 'using {namespaceName};' to {scriptName}.cs";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error adding using statement: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Remove unused using statements from a script
+        /// </summary>
+        public static string RemoveUnusedUsing(string scriptName)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                var lines = content.Split('\n').ToList();
+                
+                var usingLines = new System.Collections.Generic.List<int>();
+                var usingNamespaces = new System.Collections.Generic.List<string>();
+                
+                // Find all using statements
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    var trimmed = lines[i].Trim();
+                    if (trimmed.StartsWith("using ") && trimmed.EndsWith(";"))
+                    {
+                        usingLines.Add(i);
+                        var ns = trimmed.Substring(6, trimmed.Length - 7).Trim();
+                        usingNamespaces.Add(ns);
+                    }
+                }
+                
+                if (usingNamespaces.Count == 0)
+                    return $"ℹ️ No using statements found in {scriptName}.cs";
+                
+                // Check which namespaces are used in the code
+                var usedNamespaces = new System.Collections.Generic.List<string>();
+                var codeWithoutUsings = string.Join("\n", lines.Skip(usingLines.Count));
+                
+                foreach (var ns in usingNamespaces)
+                {
+                    // Check if namespace types are used in code
+                    // This is a simple check - more sophisticated would use Roslyn
+                    var nsTypes = ns.Split('.').Last();
+                    if (codeWithoutUsings.Contains(nsTypes) || ns == "UnityEngine" || ns == "System")
+                    {
+                        usedNamespaces.Add(ns);
+                    }
+                }
+                
+                // Remove unused using statements
+                int removedCount = 0;
+                for (int i = usingLines.Count - 1; i >= 0; i--)
+                {
+                    if (!usedNamespaces.Contains(usingNamespaces[i]))
+                    {
+                        lines.RemoveAt(usingLines[i]);
+                        removedCount++;
+                    }
+                }
+                
+                if (removedCount == 0)
+                    return $"ℹ️ No unused using statements found in {scriptName}.cs";
+                
+                string newContent = string.Join("\n", lines);
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[RemoveUnusedUsing] Removed {removedCount} unused using statement(s) from {scriptName}.cs");
+                
+                return $"✅ Removed {removedCount} unused using statement(s) from {scriptName}.cs";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error removing unused using statements: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Format code (basic indentation and spacing)
+        /// </summary>
+        public static string FormatCode(string scriptName)
+        {
+            try
+            {
+                var scriptGuids = AssetDatabase.FindAssets($"{scriptName} t:MonoScript");
+                if (scriptGuids.Length == 0)
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string scriptPath = null;
+                foreach (var guid in scriptGuids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                    if (script != null && script.name == scriptName)
+                    {
+                        scriptPath = path;
+                        break;
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(scriptPath))
+                    return $"❌ Script '{scriptName}' not found";
+                
+                string content = System.IO.File.ReadAllText(scriptPath);
+                var lines = content.Split('\n');
+                var formattedLines = new System.Collections.Generic.List<string>();
+                
+                int indentLevel = 0;
+                string indent = "    "; // 4 spaces
+                
+                foreach (var line in lines)
+                {
+                    var trimmed = line.Trim();
+                    
+                    // Decrease indent before closing brace
+                    if (trimmed.StartsWith("}"))
+                        indentLevel = Math.Max(0, indentLevel - 1);
+                    
+                    // Add formatted line
+                    if (!string.IsNullOrWhiteSpace(trimmed))
+                    {
+                        formattedLines.Add(new string(' ', indentLevel * indent.Length) + trimmed);
+                    }
+                    else
+                    {
+                        formattedLines.Add("");
+                    }
+                    
+                    // Increase indent after opening brace
+                    if (trimmed.EndsWith("{"))
+                        indentLevel++;
+                }
+                
+                string newContent = string.Join("\n", formattedLines);
+                System.IO.File.WriteAllText(scriptPath, newContent);
+                AssetDatabase.Refresh();
+                
+                Debug.Log($"[FormatCode] Formatted {scriptName}.cs");
+                
+                return $"✅ Formatted {scriptName}.cs";
+            }
+            catch (Exception e)
+            {
+                return $"❌ Error formatting code: {e.Message}";
+            }
+        }
     }
 }
 
