@@ -973,8 +973,13 @@ namespace AICodeActions.Core
             
             if (detailLevel == "Compact")
             {
-                // ULTRA SHORT: Just show count + time
-                return $"✅ {toolCount} tool(s) in {totalTime:F1}s";
+                // COMPACT: Show count + brief tool log for ReAct loop
+                result.AppendLine();
+                result.AppendLine($"✅ Completed {toolCount} tool(s) in {totalTime:F1}s");
+                result.AppendLine();
+                result.AppendLine(detailedLog.ToString()); // Include brief tool results
+                
+                return result.ToString();
             }
             else
             {
