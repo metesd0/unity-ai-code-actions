@@ -337,7 +337,7 @@ namespace AICodeActions.UI
 
         private void DrawDiffView()
         {
-            if (currentDiff == null || currentDiff.Count == 0)
+            if (currentDiff == null || currentDiff.lines == null || currentDiff.lines.Count == 0)
                 return;
 
             diffScrollPos = EditorGUILayout.BeginScrollView(diffScrollPos, GUILayout.Height(250));
