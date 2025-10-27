@@ -57,13 +57,26 @@ namespace AICodeActions.Core
                 int warningCount = 0;
                 int logCount = 0;
 
+                // Get LogEntry type for reflection
+                var logEntryType = typeof(UnityEditor.LogEntry);
+                var modeField = logEntryType.GetField("mode", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var messageField = logEntryType.GetField("message", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var fileField = logEntryType.GetField("file", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var lineField = logEntryType.GetField("line", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
                 for (int i = totalCount - readCount; i < totalCount; i++)
                 {
                     var entry = new UnityEditor.LogEntry();
                     getEntryInternalMethod.Invoke(null, new object[] { i, entry });
 
+                    // Get fields via reflection
+                    int mode = modeField != null ? (int)modeField.GetValue(entry) : 0;
+                    string message = messageField != null ? (string)messageField.GetValue(entry) : "";
+                    string file = fileField != null ? (string)fileField.GetValue(entry) : "";
+                    int line = lineField != null ? (int)lineField.GetValue(entry) : 0;
+
                     // Filter by type
-                    string logType = GetLogType(entry.mode);
+                    string logType = GetLogType(mode);
                     if (filterType != "all" && !logType.ToLower().Contains(filterType.ToLower()))
                     {
                         continue;
@@ -75,12 +88,12 @@ namespace AICodeActions.Core
                     else logCount++;
 
                     // Format message
-                    string icon = GetLogIcon(entry.mode);
-                    result.AppendLine($"{icon} **{logType}:** {entry.message}");
+                    string icon = GetLogIcon(mode);
+                    result.AppendLine($"{icon} **{logType}:** {message}");
                     
-                    if (!string.IsNullOrEmpty(entry.file))
+                    if (!string.IsNullOrEmpty(file))
                     {
-                        result.AppendLine($"   📁 {entry.file}:{entry.line}");
+                        result.AppendLine($"   📁 {file}:{line}");
                     }
                     result.AppendLine();
                 }
