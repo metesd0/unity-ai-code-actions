@@ -1,6 +1,6 @@
 {
   "name": "com.aicodeactions.editor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "AI Code Actions",
   "description": "Context-aware AI code generation with offline support for Unity developers. Generate scripts, explain code, and refactor with OpenAI, Gemini, or local LLM (Ollama).",
   "unity": "2021.3",
