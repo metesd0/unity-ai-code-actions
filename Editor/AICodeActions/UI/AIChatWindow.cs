@@ -1108,9 +1108,13 @@ Write tools naturally to complete the user's request. The system will automatica
 - ✅ ALWAYS check scene first with get_scene_info or find_gameobjects to discover actual names
 - Example: User wants to modify light → First use find_gameobjects to find lights → Use the actual name from results
 
-**Script Compilation:**
+**Script Compilation & Error Checking:**
+- ✅ ALWAYS use get_compilation_errors or read_console after creating/modifying scripts
+- ✅ Check for compilation errors BEFORE trying to attach scripts
+- ✅ If script fails to attach, check console immediately to see compilation errors
+- ✅ Fix compilation errors by reading the error message and correcting the script
+- ❌ NEVER assume scripts compiled successfully - always verify!
 - ❌ NEVER call set_component_property immediately after create_and_attach_script
-- ✅ Scripts need compilation time (few seconds) - inform user properties can be set after compilation
 
 **Error Recovery:**
 - If a tool fails, analyze why and try an alternative approach
