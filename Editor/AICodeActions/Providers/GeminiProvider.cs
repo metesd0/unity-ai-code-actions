@@ -281,7 +281,7 @@ namespace AICodeActions.Providers
                                     // Determine chunk type based on thought flag
                                     StreamChunkType chunkType = isThought 
                                         ? StreamChunkType.ReasoningDelta 
-                                        : StreamChunkType.Content;
+                                        : StreamChunkType.TextDelta;
                                     
                                     onChunk?.Invoke(new StreamChunk
                                     {
