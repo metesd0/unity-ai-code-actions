@@ -23,8 +23,8 @@ namespace AICodeActions.Core
             rules = new Dictionary<string, Func<string, InterceptionResult>>
             {
                 // Script creation/modification rules
-                { "create_and_attach_script", AnalyzeScriptCreation },
-                { "create_script", AnalyzeScriptCreation },
+                { "create_script", AnalyzeScriptCreation },  // ✨ NEW: Separate script creation
+                { "create_and_attach_script", AnalyzeScriptCreation },  // DEPRECATED but still monitored
                 { "modify_script", AnalyzeScriptModification },
                 { "attach_script", AnalyzeScriptAttachment },
                 

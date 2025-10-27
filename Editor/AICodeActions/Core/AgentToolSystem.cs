@@ -130,8 +130,16 @@ namespace AICodeActions.Core
                 new string[] { "gameobject_name", "script_name" },
                 (p) => UnityAgentTools.AttachScript(p["gameobject_name"], p["script_name"]));
             
+            RegisterTool("create_script",
+                "✨ RECOMMENDED: Create a NEW C# script file (does NOT attach). Better than create_and_attach_script because: 1) Auto-checks compilation 2) Clear error messages 3) Can attach to multiple GameObjects",
+                new string[] { "script_name", "script_content", "folder_path?" },
+                (p) => UnityAgentTools.CreateScript(
+                    p["script_name"], 
+                    p["script_content"], 
+                    p.ContainsKey("folder_path") ? p["folder_path"] : "Assets"));
+            
             RegisterTool("create_and_attach_script",
-                "Create a NEW C# script with code and attach it to a GameObject. Use this when you need to write custom behavior/logic from scratch.",
+                "[DEPRECATED] Create and attach script in ONE step. ⚠️ Use create_script + attach_script instead for better error handling!",
                 new string[] { "gameobject_name", "script_name", "script_content" },
                 (p) => UnityAgentTools.CreateAndAttachScript(p["gameobject_name"], p["script_name"], p["script_content"]));
             

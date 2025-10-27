@@ -303,10 +303,74 @@ namespace AICodeActions.Core
         }
         
         /// <summary>
-        /// Create and attach a script to a GameObject
+        /// Create a C# script file (WITHOUT attaching to GameObject).
+        /// Better separation of concerns - use create_script + attach_script separately.
+        /// </summary>
+        public static string CreateScript(string scriptName, string scriptContent, string folderPath = "Assets")
+        {
+            try
+            {
+                Debug.Log($"[CreateScript] Creating {scriptName}.cs in {folderPath}");
+                Debug.Log($"[CreateScript] Content length: {scriptContent?.Length ?? 0}");
+                
+                // Validate content
+                if (string.IsNullOrEmpty(scriptContent))
+                {
+                    return $"❌ Script content is empty!";
+                }
+                
+                // Clean up script content (remove markdown if present)
+                scriptContent = scriptContent.Trim();
+                if (scriptContent.StartsWith("```csharp") || scriptContent.StartsWith("```c#"))
+                {
+                    int firstNewline = scriptContent.IndexOf('\n');
+                    if (firstNewline > 0)
+                        scriptContent = scriptContent.Substring(firstNewline + 1);
+                }
+                if (scriptContent.EndsWith("```"))
+                {
+                    int lastBacktick = scriptContent.LastIndexOf("```");
+                    scriptContent = scriptContent.Substring(0, lastBacktick);
+                }
+                scriptContent = scriptContent.Trim();
+                
+                // Validate script name
+                if (string.IsNullOrEmpty(scriptName) || scriptName.Contains("/") || scriptName.Contains("\\"))
+                {
+                    return $"❌ Invalid script name: {scriptName}";
+                }
+                
+                // Create folder if it doesn't exist
+                if (!System.IO.Directory.Exists(folderPath))
+                {
+                    System.IO.Directory.CreateDirectory(folderPath);
+                }
+                
+                // Create the script file
+                string path = $"{folderPath}/{scriptName}.cs";
+                System.IO.File.WriteAllText(path, scriptContent);
+                Debug.Log($"[CreateScript] File written to: {path}");
+                
+                AssetDatabase.Refresh();
+                
+                return $"✅ Created script {scriptName}.cs ({scriptContent.Length} chars) at {path}\n" +
+                       $"💡 Script will compile shortly. Use attach_script to attach it to a GameObject.";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CreateScript] Error: {e}");
+                return $"❌ Error creating script: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// [DEPRECATED] Create and attach script in one step.
+        /// BETTER APPROACH: Use create_script + attach_script separately for better error handling.
         /// </summary>
         public static string CreateAndAttachScript(string gameObjectName, string scriptName, string scriptContent)
         {
+            Debug.LogWarning($"⚠️ create_and_attach_script is DEPRECATED! Use create_script + attach_script separately for better control.");
+            
             try
             {
                 Debug.Log($"[CreateScript] Creating {scriptName}.cs for {gameObjectName}");

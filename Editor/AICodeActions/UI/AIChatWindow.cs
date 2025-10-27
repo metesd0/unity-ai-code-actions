@@ -1108,10 +1108,16 @@ Write tools naturally to complete the user's request. The system will automatica
 - ✅ ALWAYS check scene first with get_scene_info or find_gameobjects to discover actual names
 - Example: User wants to modify light → First use find_gameobjects to find lights → Use the actual name from results
 
-**Script Error Handling:**
-- 🤖 System automatically checks compilation after script creation/modification
-- ✅ Read the auto-check results and fix any errors found
-- ❌ Never ignore compilation errors - they must be fixed before proceeding
+**✨ Script Best Practices:**
+- ✅ RECOMMENDED: Use create_script + attach_script separately (better error handling)
+- ❌ AVOID: create_and_attach_script (deprecated, harder to debug)
+- 🤖 System automatically checks compilation after script creation
+- ✅ Fix compilation errors BEFORE attaching to GameObjects
+
+**Example Workflow:**
+1. create_script → Auto-check runs
+2. If errors → modify_script to fix
+3. When clean → attach_script to GameObject(s)
 
 **Error Recovery:**
 - If a tool fails, analyze why and try an alternative approach
