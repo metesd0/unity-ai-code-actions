@@ -79,10 +79,10 @@ namespace AICodeActions.UI
         private GUIStyle systemMessageStyle;
         private GUIStyle codeBlockStyle;
         
-        // NEW: Advanced UI Components
-        private ToolCallVisualizer toolVisualizer;
-        private MultiFileContextManager fileContextManager;
-        private DiffViewer diffViewer;
+        // NEW: Advanced UI Components (will be integrated in next step)
+        // private ToolCallVisualizer toolVisualizer;
+        // private MultiFileContextManager fileContextManager;
+        // private DiffViewer diffViewer;
         private bool showFileContext = false;
         
         [MenuItem("Window/AI Chat")]
