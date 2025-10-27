@@ -53,14 +53,16 @@ namespace AICodeActions.Providers
             Debug.Log($"[Gemini] Request URL: {DEFAULT_ENDPOINT}{model}:generateContent?key=***");
 
             // Build thinking config if specified
+            // NOTE: thinkingConfig is not yet supported in stable Gemini API (causes 400 BadRequest)
+            // Disabled until Google officially supports it
             string thinkingConfig = "";
-            if (parameters.thinkingBudget.HasValue)
-            {
-                thinkingConfig = $@",
-                ""thinkingConfig"": {{
-                    ""thinkingBudget"": {parameters.thinkingBudget.Value}
-                }}";
-            }
+            // if (parameters.thinkingBudget.HasValue)
+            // {
+            //     thinkingConfig = $@",
+            //     ""thinkingConfig"": {{
+            //         ""thinkingBudget"": {parameters.thinkingBudget.Value}
+            //     }}";
+            // }
 
             string jsonBody = $@"{{
                 ""contents"": [{{
@@ -202,14 +204,16 @@ namespace AICodeActions.Providers
             Debug.Log($"[Gemini] Streaming URL: {DEFAULT_ENDPOINT}{model}:streamGenerateContent?key=***&alt=sse");
 
             // Build thinking config if specified
+            // NOTE: thinkingConfig is not yet supported in stable Gemini API (causes 400 BadRequest)
+            // Disabled until Google officially supports it
             string thinkingConfig = "";
-            if (parameters.thinkingBudget.HasValue)
-            {
-                thinkingConfig = $@",
-                ""thinkingConfig"": {{
-                    ""thinkingBudget"": {parameters.thinkingBudget.Value}
-                }}";
-            }
+            // if (parameters.thinkingBudget.HasValue)
+            // {
+            //     thinkingConfig = $@",
+            //     ""thinkingConfig"": {{
+            //         ""thinkingBudget"": {parameters.thinkingBudget.Value}
+            //     }}";
+            // }
 
             string jsonBody = $@"{{
                 ""contents"": [{{
