@@ -41,6 +41,8 @@ namespace AICodeActions.Core
         /// </summary>
         public InterceptionResult InterceptResult(string toolName, string toolResult, Dictionary<string, object> parameters)
         {
+            UnityEngine.Debug.Log($"[Interceptor] Analyzing tool: {toolName}");
+            
             var result = new InterceptionResult
             {
                 OriginalResult = toolResult,
@@ -51,10 +53,16 @@ namespace AICodeActions.Core
             // Apply rule-based analysis
             if (rules.ContainsKey(toolName))
             {
+                UnityEngine.Debug.Log($"[Interceptor] Found rule for: {toolName}");
                 var ruleResult = rules[toolName](toolResult);
                 result.Observations.AddRange(ruleResult.Observations);
                 result.SuggestedActions.AddRange(ruleResult.SuggestedActions);
                 result.AutoExecuteActions.AddRange(ruleResult.AutoExecuteActions);
+                UnityEngine.Debug.Log($"[Interceptor] Auto-actions: {result.AutoExecuteActions.Count}, Observations: {result.Observations.Count}");
+            }
+            else
+            {
+                UnityEngine.Debug.Log($"[Interceptor] No rule found for: {toolName}");
             }
             
             // Generic error detection
@@ -69,9 +77,12 @@ namespace AICodeActions.Core
         {
             var interception = new InterceptionResult();
             
+            UnityEngine.Debug.Log($"[Interceptor] AnalyzeScriptCreation called. Result contains 'created': {result.Contains("created")}, 'Created': {result.Contains("Created")}");
+            
             // Always check compilation after script creation
             if (result.Contains("created") || result.Contains("Created"))
             {
+                UnityEngine.Debug.Log("[Interceptor] Adding auto-execute action: get_compilation_errors");
                 interception.AutoExecuteActions.Add(new ToolAction
                 {
                     ToolName = "get_compilation_errors",
@@ -80,6 +91,10 @@ namespace AICodeActions.Core
                 });
                 
                 interception.Observations.Add("⚠️ Script created - compilation check is MANDATORY before proceeding");
+            }
+            else
+            {
+                UnityEngine.Debug.Log($"[Interceptor] No trigger found. Result preview: {result.Substring(0, Math.Min(100, result.Length))}");
             }
             
             return interception;
