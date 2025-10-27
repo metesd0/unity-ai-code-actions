@@ -258,6 +258,340 @@ namespace AICodeActions.Core
                 "Get project statistics (assets, scenes, etc.)",
                 new string[] { },
                 (p) => UnityAgentTools.GetProjectStats());
+            
+            // ===== NEW ADVANCED COMPONENT OPERATIONS =====
+            
+            RegisterTool("remove_component",
+                "Remove a component from a GameObject",
+                new string[] { "gameobject_name", "component_type" },
+                (p) => UnityAgentTools.RemoveComponent(p["gameobject_name"], p["component_type"]));
+            
+            RegisterTool("enable_component",
+                "Enable or disable a component (set enabled property)",
+                new string[] { "gameobject_name", "component_type", "enabled" },
+                (p) => UnityAgentTools.EnableComponent(p["gameobject_name"], p["component_type"], p["enabled"].ToLower() == "true"));
+            
+            RegisterTool("copy_component",
+                "Copy a component from one GameObject to another",
+                new string[] { "source_gameobject", "target_gameobject", "component_type" },
+                (p) => UnityAgentTools.CopyComponent(p["source_gameobject"], p["target_gameobject"], p["component_type"]));
+            
+            RegisterTool("reset_component",
+                "Reset a component to its default values",
+                new string[] { "gameobject_name", "component_type" },
+                (p) => UnityAgentTools.ResetComponent(p["gameobject_name"], p["component_type"]));
+            
+            RegisterTool("set_multiple_properties",
+                "Set multiple component properties at once (batch operation). Format: 'property1:value1,property2:value2'",
+                new string[] { "gameobject_name", "component_type", "properties" },
+                (p) => UnityAgentTools.SetMultipleProperties(p["gameobject_name"], p["component_type"], p["properties"]));
+            
+            // ===== NEW ADVANCED SCRIPT OPERATIONS =====
+            
+            RegisterTool("modify_method",
+                "Modify an existing method's body in a script",
+                new string[] { "script_name", "method_name", "new_method_body" },
+                (p) => UnityAgentTools.ModifyMethod(p["script_name"], p["method_name"], p["new_method_body"]));
+            
+            RegisterTool("delete_method",
+                "Delete a method from a script",
+                new string[] { "script_name", "method_name" },
+                (p) => UnityAgentTools.DeleteMethod(p["script_name"], p["method_name"]));
+            
+            RegisterTool("rename_method",
+                "Rename a method in a script (including all calls)",
+                new string[] { "script_name", "old_method_name", "new_method_name" },
+                (p) => UnityAgentTools.RenameMethod(p["script_name"], p["old_method_name"], p["new_method_name"]));
+            
+            RegisterTool("create_property",
+                "Create a property with get/set in a script",
+                new string[] { "script_name", "property_type", "property_name", "get_body", "set_body" },
+                (p) => UnityAgentTools.CreateProperty(
+                    p["script_name"],
+                    p["property_type"],
+                    p["property_name"],
+                    p.ContainsKey("get_body") ? p["get_body"] : null,
+                    p.ContainsKey("set_body") ? p["set_body"] : null));
+            
+            RegisterTool("add_interface",
+                "Add interface implementation to a class",
+                new string[] { "script_name", "interface_name" },
+                (p) => UnityAgentTools.AddInterface(p["script_name"], p["interface_name"]));
+            
+            RegisterTool("add_using_statement",
+                "Add a using statement to a script",
+                new string[] { "script_name", "namespace" },
+                (p) => UnityAgentTools.AddUsingStatement(p["script_name"], p["namespace"]));
+            
+            RegisterTool("remove_unused_using",
+                "Remove unused using statements from a script",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.RemoveUnusedUsing(p["script_name"]));
+            
+            RegisterTool("format_code",
+                "Format code (indentation and spacing)",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.FormatCode(p["script_name"]));
+            
+            // ===== ADVANCED PROJECT INSPECTION =====
+            
+            RegisterTool("search_assets",
+                "Advanced asset search with filters (type, folder)",
+                new string[] { "search_query", "asset_type", "folder" },
+                (p) => UnityAgentTools.SearchAssets(
+                    p["search_query"],
+                    p.ContainsKey("asset_type") ? p["asset_type"] : "",
+                    p.ContainsKey("folder") ? p["folder"] : "Assets"));
+            
+            RegisterTool("find_asset_references",
+                "Find all assets that reference a specific asset",
+                new string[] { "asset_path" },
+                (p) => UnityAgentTools.FindAssetReferences(p["asset_path"]));
+            
+            RegisterTool("analyze_asset_dependencies",
+                "Analyze what an asset depends on",
+                new string[] { "asset_path", "recursive" },
+                (p) => UnityAgentTools.AnalyzeAssetDependencies(
+                    p["asset_path"],
+                    p.ContainsKey("recursive") && p["recursive"].ToLower() == "true"));
+            
+            RegisterTool("get_project_structure",
+                "Get detailed project folder structure",
+                new string[] { "root_folder", "max_depth" },
+                (p) => UnityAgentTools.GetProjectStructure(
+                    p.ContainsKey("root_folder") ? p["root_folder"] : "Assets",
+                    p.ContainsKey("max_depth") ? int.Parse(p["max_depth"]) : 3));
+            
+            RegisterTool("find_unused_assets",
+                "Find assets not referenced by any scene in build",
+                new string[] { "folder" },
+                (p) => UnityAgentTools.FindUnusedAssets(
+                    p.ContainsKey("folder") ? p["folder"] : "Assets"));
+            
+            RegisterTool("import_asset",
+                "Import asset from file system to Unity project",
+                new string[] { "source_path", "target_path" },
+                (p) => UnityAgentTools.ImportAsset(p["source_path"], p["target_path"]));
+            
+            RegisterTool("organize_assets",
+                "Organize assets into folders by type",
+                new string[] { "source_folder", "target_root_folder" },
+                (p) => UnityAgentTools.OrganizeAssets(p["source_folder"], p["target_root_folder"]));
+            
+            // ===== CODE ANALYSIS =====
+            
+            RegisterTool("calculate_complexity",
+                "Calculate cyclomatic complexity of a script",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.CalculateComplexity(p["script_name"]));
+            
+            RegisterTool("detect_code_smells",
+                "Detect code smells and quality issues in a script",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.DetectCodeSmells(p["script_name"]));
+            
+            RegisterTool("analyze_script_dependencies",
+                "Analyze script dependencies and using statements",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.AnalyzeScriptDependencies(p["script_name"]));
+            
+            RegisterTool("generate_quality_report",
+                "Generate code quality report for entire project",
+                new string[] { },
+                (p) => UnityAgentTools.GenerateQualityReport());
+            
+            // ===== ADVANCED SCENE MANAGEMENT =====
+            
+            RegisterTool("load_scene_additive",
+                "Load scene additively (multi-scene editing)",
+                new string[] { "scene_name" },
+                (p) => UnityAgentTools.LoadSceneAdditive(p["scene_name"]));
+            
+            RegisterTool("unload_scene",
+                "Unload an additively loaded scene",
+                new string[] { "scene_name" },
+                (p) => UnityAgentTools.UnloadScene(p["scene_name"]));
+            
+            RegisterTool("get_loaded_scenes",
+                "Get list of currently loaded scenes",
+                new string[] { },
+                (p) => UnityAgentTools.GetLoadedScenes());
+            
+            RegisterTool("set_active_scene",
+                "Set active scene (for multi-scene editing)",
+                new string[] { "scene_name" },
+                (p) => UnityAgentTools.SetActiveScene(p["scene_name"]));
+            
+            RegisterTool("create_scene_from_template",
+                "Create scene from template (basic, 3d, 2d, ui)",
+                new string[] { "scene_name", "template_type" },
+                (p) => UnityAgentTools.CreateSceneFromTemplate(p["scene_name"], p["template_type"]));
+            
+            RegisterTool("get_build_settings",
+                "Get build settings and scenes in build",
+                new string[] { },
+                (p) => UnityAgentTools.GetBuildSettings());
+            
+            RegisterTool("add_scene_to_build",
+                "Add scene to build settings",
+                new string[] { "scene_name", "enabled" },
+                (p) => UnityAgentTools.AddSceneToBuild(
+                    p["scene_name"],
+                    !p.ContainsKey("enabled") || p["enabled"].ToLower() == "true"));
+            
+            RegisterTool("remove_scene_from_build",
+                "Remove scene from build settings",
+                new string[] { "scene_name" },
+                (p) => UnityAgentTools.RemoveSceneFromBuild(p["scene_name"]));
+            
+            RegisterTool("compare_scenes",
+                "Compare two scenes and show differences",
+                new string[] { "scene_name1", "scene_name2" },
+                (p) => UnityAgentTools.CompareScenes(p["scene_name1"], p["scene_name2"]));
+            
+            RegisterTool("merge_scenes",
+                "Merge one scene into another",
+                new string[] { "source_scene", "target_scene" },
+                (p) => UnityAgentTools.MergeScenes(p["source_scene"], p["target_scene"]));
+            
+            RegisterTool("get_scene_stats",
+                "Get detailed statistics about a scene",
+                new string[] { "scene_name" },
+                (p) => UnityAgentTools.GetSceneStats(
+                    p.ContainsKey("scene_name") ? p["scene_name"] : ""));
+            
+            // ===== RAG + SEMANTIC SEARCH =====
+            
+            RegisterTool("index_project",
+                "Index entire project for semantic search (must do once before semantic search)",
+                new string[] { "force_reindex" },
+                (p) => UnityAgentTools.IndexProject(
+                    p.ContainsKey("force_reindex") ? p["force_reindex"] : "false"));
+            
+            RegisterTool("semantic_search",
+                "Search code by meaning, not just keywords (requires indexed project)",
+                new string[] { "query", "top_k" },
+                (p) => UnityAgentTools.SearchSemantic(
+                    p["query"],
+                    p.ContainsKey("top_k") ? p["top_k"] : "5"));
+            
+            RegisterTool("find_similar_code",
+                "Find code similar to given snippet",
+                new string[] { "code_snippet", "top_k" },
+                (p) => UnityAgentTools.FindSimilar(
+                    p["code_snippet"],
+                    p.ContainsKey("top_k") ? p["top_k"] : "5"));
+            
+            RegisterTool("get_rag_stats",
+                "Get RAG/Vector Database statistics",
+                new string[] { },
+                (p) => UnityAgentTools.GetRAGStats());
+            
+            // ===== ROSLYN SEMANTIC ANALYSIS =====
+            
+            RegisterTool("get_call_graph",
+                "Analyze who calls a method (call graph)",
+                new string[] { "script_name", "method_name" },
+                (p) => UnityAgentTools.GetMethodCallGraph(p["script_name"], p["method_name"]));
+            
+            RegisterTool("find_symbol_usages",
+                "Find all usages of a variable/field/property",
+                new string[] { "script_name", "symbol_name" },
+                (p) => UnityAgentTools.FindSymbolUsages(p["script_name"], p["symbol_name"]));
+            
+            RegisterTool("analyze_data_flow",
+                "Analyze how data flows through code (data flow analysis)",
+                new string[] { "script_name", "variable_name" },
+                (p) => UnityAgentTools.AnalyzeVariableDataFlow(p["script_name"], p["variable_name"]));
+            
+            RegisterTool("get_all_symbols",
+                "Get all methods/fields/properties in a script (symbol table)",
+                new string[] { "script_name" },
+                (p) => UnityAgentTools.GetScriptSymbols(p["script_name"]));
+            
+            // ===== REACT (REASONING + ACTING) =====
+            
+            RegisterTool("plan_with_react",
+                "Plan task execution using ReAct (shows steps without executing)",
+                new string[] { "task" },
+                (p) => UnityAgentTools.PlanWithReAct(p["task"]));
+            
+            RegisterTool("estimate_task_complexity",
+                "Estimate how complex a task is (1-10 scale)",
+                new string[] { "task" },
+                (p) => UnityAgentTools.EstimateTaskComplexity(p["task"]));
+            
+            // ===== SELF-CORRECTION =====
+            
+            RegisterTool("analyze_error",
+                "Analyze error message and get root cause + fixes",
+                new string[] { "error_message" },
+                (p) => UnityAgentTools.AnalyzeError(p["error_message"]));
+            
+            RegisterTool("suggest_fixes",
+                "Get suggested fixes for an error",
+                new string[] { "error_message" },
+                (p) => UnityAgentTools.SuggestFixes(p["error_message"]));
+            
+            RegisterTool("get_self_correction_stats",
+                "Get self-correction engine statistics",
+                new string[] { },
+                (p) => UnityAgentTools.GetSelfCorrectionStats());
+            
+            // ===== LONG-TERM MEMORY =====
+            
+            RegisterTool("store_memory",
+                "Store information in long-term memory",
+                new string[] { "type", "content", "importance" },
+                (p) => UnityAgentTools.StoreMemory(
+                    p["type"],
+                    p["content"],
+                    p.ContainsKey("importance") ? p["importance"] : "0.5"));
+            
+            RegisterTool("recall_memories",
+                "Recall memories by type (Episodic, Semantic, UserPreference, ProjectContext, Success, Failure, Insight, Tool)",
+                new string[] { "type", "limit" },
+                (p) => UnityAgentTools.RecallMemories(
+                    p["type"],
+                    p.ContainsKey("limit") ? p["limit"] : "10"));
+            
+            RegisterTool("search_memories",
+                "Search memories by content",
+                new string[] { "query", "limit" },
+                (p) => UnityAgentTools.SearchMemories(
+                    p["query"],
+                    p.ContainsKey("limit") ? p["limit"] : "10"));
+            
+            RegisterTool("get_memory_stats",
+                "Get memory system statistics",
+                new string[] { },
+                (p) => UnityAgentTools.GetMemoryStats());
+            
+            RegisterTool("get_important_memories",
+                "Get most important memories",
+                new string[] { "limit" },
+                (p) => UnityAgentTools.GetImportantMemories(
+                    p.ContainsKey("limit") ? p["limit"] : "10"));
+            
+            RegisterTool("consolidate_memories",
+                "Consolidate duplicate/similar memories",
+                new string[] { },
+                (p) => UnityAgentTools.ConsolidateMemories());
+            
+            RegisterTool("analyze_project",
+                "Analyze project structure and patterns",
+                new string[] { },
+                (p) => UnityAgentTools.AnalyzeProject());
+            
+            RegisterTool("get_project_context",
+                "Get learned project context",
+                new string[] { },
+                (p) => UnityAgentTools.GetProjectContext());
+            
+            RegisterTool("get_coding_style",
+                "Get learned user coding style preferences",
+                new string[] { },
+                (p) => UnityAgentTools.GetCodingStyle());
         }
         
         public void RegisterTool(string name, string description, string[] parameters, ToolFunction function)
