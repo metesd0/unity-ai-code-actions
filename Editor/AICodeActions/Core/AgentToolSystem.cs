@@ -205,6 +205,19 @@ namespace AICodeActions.Core
                 new string[] { "file_path" },
                 (p) => UnityAgentTools.ReadFile(p["file_path"]));
             
+            // Console reading tools
+            RegisterTool("read_console",
+                "Read recent Unity Console messages (errors, warnings, logs). CRITICAL: Use this after script creation to check for compilation errors!",
+                new string[] { "count", "filter_type" },
+                (p) => UnityAgentTools.ReadConsole(
+                    p.ContainsKey("count") ? int.Parse(p["count"]) : 10,
+                    p.ContainsKey("filter_type") ? p["filter_type"] : "all"));
+            
+            RegisterTool("get_compilation_errors",
+                "Check if scripts compiled successfully and get compilation errors if any. Use this immediately after creating/modifying scripts!",
+                new string[] { },
+                (p) => UnityAgentTools.GetCompilationErrors());
+            
             RegisterTool("get_gameobject_info",
                 "Get detailed information about a GameObject including all components and their scripts",
                 new string[] { "gameobject_name" },
