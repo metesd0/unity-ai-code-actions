@@ -79,10 +79,10 @@ namespace AICodeActions.UI
         private GUIStyle systemMessageStyle;
         private GUIStyle codeBlockStyle;
         
-        // NEW: Advanced UI Components (will be integrated in next step)
-        // private ToolCallVisualizer toolVisualizer;
-        // private MultiFileContextManager fileContextManager;
-        // private DiffViewer diffViewer;
+        // NEW: Advanced UI Components
+        private ToolCallVisualizer toolVisualizer;
+        private MultiFileContextManager fileContextManager;
+        private DiffViewer diffViewer;
         private bool showFileContext = false;
         
         [MenuItem("Window/AI Chat")]
@@ -708,7 +708,71 @@ namespace AICodeActions.UI
         
         private void DrawMessageContent(ChatMessage message)
         {
-            DrawContentWithCodeBlocks(message.content);
+            // First, check for tool calls and render them separately
+            var toolCallMatches = Regex.Matches(message.content, @"\[TOOL:(\w+)\](.*?)\[/TOOL\]", RegexOptions.Singleline);
+            
+            if (toolCallMatches.Count > 0)
+            {
+                int lastIndex = 0;
+                
+                foreach (Match match in toolCallMatches)
+                {
+                    // Draw text before tool call
+                    if (match.Index > lastIndex)
+                    {
+                        string textBefore = message.content.Substring(lastIndex, match.Index - lastIndex);
+                        if (!string.IsNullOrWhiteSpace(textBefore))
+                        {
+                            DrawContentWithCodeBlocks(textBefore);
+                        }
+                    }
+                    
+                    // Draw tool call visualization
+                    string toolName = match.Groups[1].Value;
+                    string toolContent = match.Groups[2].Value.Trim();
+                    
+                    // Parse parameters
+                    var parameters = new Dictionary<string, string>();
+                    var paramLines = toolContent.Split('\n');
+                    foreach (var line in paramLines)
+                    {
+                        int colonIndex = line.IndexOf(':');
+                        if (colonIndex > 0)
+                        {
+                            string key = line.Substring(0, colonIndex).Trim();
+                            string value = line.Substring(colonIndex + 1).Trim();
+                            parameters[key] = value;
+                        }
+                    }
+                    
+                    // Check if tool execution result is in the content
+                    string result = "Executed";
+                    var resultMatch = Regex.Match(toolContent, @"Result:\s*(.+)", RegexOptions.Singleline);
+                    if (resultMatch.Success)
+                    {
+                        result = resultMatch.Groups[1].Value.Trim();
+                    }
+                    
+                    toolVisualizer.Draw(toolName, parameters, result, ToolCallStatus.Success);
+                    
+                    lastIndex = match.Index + match.Length;
+                }
+                
+                // Draw remaining text
+                if (lastIndex < message.content.Length)
+                {
+                    string textAfter = message.content.Substring(lastIndex);
+                    if (!string.IsNullOrWhiteSpace(textAfter))
+                    {
+                        DrawContentWithCodeBlocks(textAfter);
+                    }
+                }
+            }
+            else
+            {
+                // No tool calls, just draw content with code blocks
+                DrawContentWithCodeBlocks(message.content);
+            }
         }
         
         private void DrawContentWithCodeBlocks(string content)
@@ -722,6 +786,7 @@ namespace AICodeActions.UI
             if (codeBlockMatches.Count > 0)
             {
                 int lastIndex = 0;
+                int matchIndex = 0;
                 
                 foreach (Match match in codeBlockMatches)
                 {
@@ -729,13 +794,53 @@ namespace AICodeActions.UI
                     if (match.Index > lastIndex)
                     {
                         string textBefore = content.Substring(lastIndex, match.Index - lastIndex);
+                        
+                        // Check for Before/After pattern (for diff view)
+                        bool isBeforeAfterPattern = false;
+                        if (matchIndex < codeBlockMatches.Count - 1 && 
+                            (textBefore.Contains("Before:") || textBefore.Contains("before:") || 
+                             textBefore.Contains("Original:") || textBefore.Contains("old:")))
+                        {
+                            // Check if next text contains "After:"
+                            int nextIndex = match.Index + match.Length;
+                            int nextMatchIndex = codeBlockMatches[matchIndex + 1].Index;
+                            if (nextMatchIndex > nextIndex)
+                            {
+                                string betweenText = content.Substring(nextIndex, nextMatchIndex - nextIndex);
+                                if (betweenText.Contains("After:") || betweenText.Contains("after:") || 
+                                    betweenText.Contains("New:") || betweenText.Contains("Modified:"))
+                                {
+                                    isBeforeAfterPattern = true;
+                                    
+                                    // Draw the between text
+                                    EditorGUILayout.LabelField(textBefore, EditorStyles.wordWrappedLabel);
+                                    
+                                    // Get before and after code
+                                    string beforeCode = match.Groups[1].Value.Trim();
+                                    Match nextMatch = codeBlockMatches[matchIndex + 1];
+                                    string afterCode = nextMatch.Groups[1].Value.Trim();
+                                    
+                                    // Draw diff viewer
+                                    diffViewer.Draw(beforeCode, afterCode);
+                                    
+                                    // Draw text between Before and After
+                                    EditorGUILayout.LabelField(betweenText, EditorStyles.wordWrappedLabel);
+                                    
+                                    // Skip next match (already processed)
+                                    lastIndex = nextMatch.Index + nextMatch.Length;
+                                    matchIndex += 2; // Skip both current and next
+                                    continue;
+                                }
+                            }
+                        }
+                        
                         if (!string.IsNullOrWhiteSpace(textBefore))
                         {
                             EditorGUILayout.LabelField(textBefore, EditorStyles.wordWrappedLabel);
                         }
                     }
                     
-                    // Draw code block with syntax highlighting
+                    // Draw code block with syntax highlighting (only if not part of Before/After)
                     string code = match.Groups[1].Value.Trim();
                     string highlightedCode = SyntaxHighlighter.ApplyHighlighting(code, "csharp");
                     
@@ -754,6 +859,7 @@ namespace AICodeActions.UI
                     }
                     
                     lastIndex = match.Index + match.Length;
+                    matchIndex++;
                 }
                 
                 // Draw remaining text
