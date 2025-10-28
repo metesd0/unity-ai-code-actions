@@ -86,13 +86,20 @@ namespace AICodeActions.UI
         private DiffViewer diffViewer;
         private bool showFileContext = false;
         
-        // Task Decomposition & Auto-Continue
+        // Task Decomposition & Auto-Continue (Legacy)
         private TaskDecomposer taskDecomposer;
         private AutoContinueDetector autoContinueDetector;
         private TaskPlan currentTaskPlan;
-        private bool enableAutoDecompose = true;
-        private bool enableAutoContinue = true;
+        private bool enableAutoDecompose = false; // Disabled in favor of hybrid
+        private bool enableAutoContinue = false;  // Disabled in favor of hybrid
         private int messagesSinceLastTool = 0;
+        
+        // Hybrid Workflow System (NEW - Cost-optimized & Loop-safe)
+        private WorkflowStateMachine workflowStateMachine;
+        private DualModelExecutor dualModelExecutor;
+        private SelfHealingManager selfHealingManager;
+        private bool enableHybridWorkflow = true; // Enable by default
+        private IModelProvider cheapModel; // GPT-3.5 for execution
         
         [MenuItem("Window/AI Chat")]
         public static void ShowWindow()
@@ -129,8 +136,11 @@ namespace AICodeActions.UI
             fileContextManager = new MultiFileContextManager();
             diffViewer = new DiffViewer();
             
-            // Initialize Task Decomposition & Auto-Continue
+            // Initialize Task Decomposition & Auto-Continue (Legacy)
             autoContinueDetector = new AutoContinueDetector();
+            
+            // Initialize Hybrid Workflow System
+            InitializeHybridWorkflow();
             
             // Load conversation history
             LoadConversation();
@@ -1032,8 +1042,56 @@ namespace AICodeActions.UI
         
         private void DrawStatusBar()
         {
-            // Task Progress Bar (if active)
-            if (currentTaskPlan != null && !currentTaskPlan.IsComplete)
+            // Hybrid Workflow State (if active)
+            if (enableHybridWorkflow && workflowStateMachine != null && workflowStateMachine.IsActive)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                
+                EditorGUILayout.BeginHorizontal();
+                
+                // State indicator with color
+                var stateColor = workflowStateMachine.CurrentState switch
+                {
+                    WorkflowStateMachine.State.Planning => new Color(0.3f, 0.6f, 1f),
+                    WorkflowStateMachine.State.Executing => new Color(0.3f, 1f, 0.3f),
+                    WorkflowStateMachine.State.Validating => new Color(1f, 0.8f, 0.3f),
+                    WorkflowStateMachine.State.Healing => new Color(1f, 0.5f, 0.3f),
+                    WorkflowStateMachine.State.Replanning => new Color(1f, 0.3f, 0.3f),
+                    _ => Color.white
+                };
+                
+                GUI.color = stateColor;
+                GUILayout.Label("●", GUILayout.Width(20));
+                GUI.color = Color.white;
+                
+                GUILayout.Label(workflowStateMachine.GetStateDescription(), EditorStyles.boldLabel);
+                GUILayout.FlexibleSpace();
+                
+                // Iteration counter
+                var iterColor = workflowStateMachine.IsNearIterationLimit() ? Color.red : Color.white;
+                GUI.color = iterColor;
+                GUILayout.Label($"{workflowStateMachine.CurrentIteration}/{workflowStateMachine.MaxIterations}", 
+                              EditorStyles.miniLabel, GUILayout.Width(50));
+                GUI.color = Color.white;
+                
+                // Cancel button
+                if (GUILayout.Button("⏹", GUILayout.Width(30)))
+                {
+                    workflowStateMachine.TransitionTo(WorkflowStateMachine.State.Failed, "Cancelled by user");
+                    cancellationTokenSource?.Cancel();
+                    conversation.AddSystemMessage("🛑 Workflow cancelled by user");
+                }
+                
+                EditorGUILayout.EndHorizontal();
+                
+                // Progress bar
+                var progressRect = GUILayoutUtility.GetRect(18, 18, GUILayout.ExpandWidth(true));
+                EditorGUI.ProgressBar(progressRect, workflowStateMachine.GetProgress(), "");
+                
+                EditorGUILayout.EndVertical();
+            }
+            // Legacy Task Progress Bar (if active)
+            else if (currentTaskPlan != null && !currentTaskPlan.IsComplete)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 
@@ -1987,6 +2045,49 @@ parameter2: value2
                 conversation.AddSystemMessage($"📎 Attached file reference: {fileName} - AI can read it with 'read_file' tool");
                 Repaint();
             }
+        }
+        
+        /// <summary>
+        /// Initialize Hybrid Workflow System (State Machine + Dual Model + Self-Healing)
+        /// </summary>
+        private void InitializeHybridWorkflow()
+        {
+            try
+            {
+                // State machine for loop prevention
+                workflowStateMachine = new WorkflowStateMachine();
+                workflowStateMachine.MaxIterations = 50; // Hard limit
+                
+                // Create cheap model for execution (if available)
+                cheapModel = CreateCheapModelProvider();
+                
+                if (currentProvider != null)
+                {
+                    // Dual model: Expensive planner + Cheap executor
+                    dualModelExecutor = new DualModelExecutor(currentProvider, cheapModel);
+                    
+                    // Self-healing with cheap model
+                    selfHealingManager = new SelfHealingManager(cheapModel ?? currentProvider);
+                    
+                    Debug.Log("[HybridWorkflow] Initialized - Planner: " + currentProvider.Name + 
+                             ", Executor: " + (cheapModel?.Name ?? currentProvider.Name));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[HybridWorkflow] Initialization failed: " + ex.Message);
+                enableHybridWorkflow = false;
+            }
+        }
+        
+        /// <summary>
+        /// Create a cheap model provider for execution (GPT-3.5, Gemini Flash, etc.)
+        /// </summary>
+        private IModelProvider CreateCheapModelProvider()
+        {
+            // For now, return null - will use same model
+            // TODO: Add settings to configure secondary model
+            return null;
         }
         
         /// <summary>
