@@ -86,6 +86,14 @@ namespace AICodeActions.UI
         private DiffViewer diffViewer;
         private bool showFileContext = false;
         
+        // Task Decomposition & Auto-Continue
+        private TaskDecomposer taskDecomposer;
+        private AutoContinueDetector autoContinueDetector;
+        private TaskPlan currentTaskPlan;
+        private bool enableAutoDecompose = true;
+        private bool enableAutoContinue = true;
+        private int messagesSinceLastTool = 0;
+        
         [MenuItem("Window/AI Chat")]
         public static void ShowWindow()
         {
@@ -120,6 +128,9 @@ namespace AICodeActions.UI
             toolVisualizer = new ToolCallVisualizer();
             fileContextManager = new MultiFileContextManager();
             diffViewer = new DiffViewer();
+            
+            // Initialize Task Decomposition & Auto-Continue
+            autoContinueDetector = new AutoContinueDetector();
             
             // Load conversation history
             LoadConversation();
@@ -319,6 +330,12 @@ namespace AICodeActions.UI
             };
             
             Debug.Log($"[AI Chat] Loaded provider: {currentProvider?.Name} (IsConfigured: {currentProvider?.IsConfigured})");
+            
+            // Initialize TaskDecomposer with current provider
+            if (currentProvider != null)
+            {
+                taskDecomposer = new TaskDecomposer(currentProvider);
+            }
         }
         
         private IModelProvider CreateOpenRouterProvider()
@@ -1015,6 +1032,32 @@ namespace AICodeActions.UI
         
         private void DrawStatusBar()
         {
+            // Task Progress Bar (if active)
+            if (currentTaskPlan != null && !currentTaskPlan.IsComplete)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label($"🎯 {currentTaskPlan.MainGoal}", EditorStyles.boldLabel);
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{currentTaskPlan.CompletedTasksCount}/{currentTaskPlan.TotalTasksCount}", EditorStyles.miniLabel);
+                EditorGUILayout.EndHorizontal();
+                
+                // Progress bar
+                var rect = GUILayoutUtility.GetRect(18, 18, GUILayout.ExpandWidth(true));
+                EditorGUI.ProgressBar(rect, currentTaskPlan.Progress, 
+                    $"Step {currentTaskPlan.CurrentStep + 1}/{currentTaskPlan.TotalTasksCount}");
+                
+                // Current task description
+                if (currentTaskPlan.CurrentTask != null)
+                {
+                    GUILayout.Label($"🔄 {currentTaskPlan.CurrentTask.Description}", EditorStyles.miniLabel);
+                }
+                
+                EditorGUILayout.EndVertical();
+            }
+            
+            // Status bar
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             GUILayout.Label(statusMessage, EditorStyles.miniLabel);
             GUILayout.FlexibleSpace();
@@ -1026,6 +1069,19 @@ namespace AICodeActions.UI
             }
             
             EditorGUILayout.EndHorizontal();
+        }
+        
+        /// <summary>
+        /// Helper to send message programmatically (for auto-continue)
+        /// </summary>
+        private async System.Threading.Tasks.Task SendMessageWithText(string message)
+        {
+            // Temporarily store user input
+            var savedInput = userInput;
+            userInput = message;
+            SendMessage();
+            await System.Threading.Tasks.Task.Yield(); // Allow async completion
+            userInput = savedInput;
         }
         
         private async void SendMessage()
@@ -1045,6 +1101,32 @@ namespace AICodeActions.UI
             conversation.AddUserMessage(message);
             userInput = "";
             autoScroll = true; // Enable auto-scroll for new messages
+            
+            // Task Decomposition: Check if this is a complex multi-step task
+            if (enableAutoDecompose && taskDecomposer != null && currentTaskPlan == null)
+            {
+                if (taskDecomposer.ShouldDecompose(message) && !taskDecomposer.IsSimpleTask(message))
+                {
+                    statusMessage = "Planning task...";
+                    isProcessing = true;
+                    
+                    try
+                    {
+                        currentTaskPlan = await taskDecomposer.DecomposeTask(message);
+                        
+                        // Show plan to user
+                        var planSummary = $"📋 Task Plan Created:\n\n{currentTaskPlan.GetDetailedStatus()}";
+                        conversation.AddSystemMessage(planSummary);
+                        
+                        Debug.Log($"[TaskDecomposer] Created plan with {currentTaskPlan.TotalTasksCount} steps");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[TaskDecomposer] Failed to create plan: {ex.Message}");
+                        currentTaskPlan = null;
+                    }
+                }
+            }
             
             isProcessing = true;
             statusMessage = "AI is thinking...";
@@ -1539,6 +1621,43 @@ parameter2: value2
                 QueueUIUpdate(() => SaveConversation());
                 autoScroll = true; // Enable auto-scroll for new messages
                 statusMessage = "Ready";
+                
+                // Auto-Continue Logic: Check if we should automatically continue to next step
+                if (enableAutoContinue && currentTaskPlan != null && !currentTaskPlan.IsComplete)
+                {
+                    var lastToolResult = ExtractToolResults(response);
+                    var shouldContinue = autoContinueDetector.ShouldAutoContinue(
+                        currentTaskPlan, 
+                        response, 
+                        lastToolResult
+                    );
+                    
+                    if (shouldContinue)
+                    {
+                        Debug.Log("[AutoContinue] Automatically continuing to next step");
+                        
+                        // Wait a bit for UI to update
+                        await System.Threading.Tasks.Task.Delay(1000);
+                        
+                        // Send continuation prompt
+                        var continuationPrompt = autoContinueDetector.GetContinuationPrompt(currentTaskPlan);
+                        conversation.AddSystemMessage(continuationPrompt);
+                        
+                        // Recursively call SendMessage (but don't set userInput)
+                        // This will continue the workflow automatically
+                        await SendMessageWithText(continuationPrompt);
+                    }
+                    else
+                    {
+                        // Check if task plan is complete
+                        if (currentTaskPlan.IsComplete)
+                        {
+                            var completionSummary = $"✅ Task Completed!\n\n{currentTaskPlan.GetDetailedStatus()}";
+                            conversation.AddSystemMessage(completionSummary);
+                            currentTaskPlan = null; // Clear plan
+                        }
+                    }
+                }
             }
             catch (System.OperationCanceledException)
             {
