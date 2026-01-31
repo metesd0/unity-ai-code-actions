@@ -181,9 +181,11 @@ namespace AICodeActions.Core
             }
         }
 
-        private static byte[] DeriveKey(byte[] entropy, int length, string salt = "KEY")
+        private static byte[] DeriveKey(byte[] entropy, int length, string salt = "KEYSALT8")
         {
-            using (var deriveBytes = new Rfc2898DeriveBytes(entropy, Encoding.UTF8.GetBytes(salt), 10000))
+            // Salt must be at least 8 bytes
+            byte[] saltBytes = Encoding.UTF8.GetBytes(salt.PadRight(8, '_'));
+            using (var deriveBytes = new Rfc2898DeriveBytes(entropy, saltBytes, 10000))
             {
                 return deriveBytes.GetBytes(length);
             }
