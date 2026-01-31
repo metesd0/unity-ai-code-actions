@@ -30,7 +30,7 @@ namespace AICodeActions.Core
             
             try
             {
-                var response = await modelProvider.SendMessageAsync(decompositionPrompt);
+                var response = await modelProvider.GenerateAsync(decompositionPrompt);
                 var plan = ParseDecompositionResponse(response, userGoal);
                 
                 Debug.Log($"[TaskDecomposer] Created plan with {plan.TotalTasksCount} sub-tasks");
