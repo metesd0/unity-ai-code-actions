@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AICodeActions.Core;
 using AICodeActions.Providers.Models;
 using ChatMessage = AICodeActions.Providers.Models.ChatMessage;
 using Newtonsoft.Json;
