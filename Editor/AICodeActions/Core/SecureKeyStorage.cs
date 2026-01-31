@@ -128,28 +128,14 @@ namespace AICodeActions.Core
 
         private static string Encrypt(string plainText)
         {
-#if UNITY_EDITOR_WIN
-            // Use Windows DPAPI for best security
-            byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
-            byte[] entropy = GetEntropy();
-            byte[] encryptedBytes = ProtectedData.Protect(plainBytes, entropy, DataProtectionScope.CurrentUser);
-            return Convert.ToBase64String(encryptedBytes);
-#else
-            // macOS/Linux: Use AES with machine-specific key
+            // Use AES encryption for all platforms (cross-platform compatible)
             return EncryptAES(plainText);
-#endif
         }
 
         private static string Decrypt(string encryptedText)
         {
-#if UNITY_EDITOR_WIN
-            byte[] encryptedBytes = Convert.FromBase64String(encryptedText);
-            byte[] entropy = GetEntropy();
-            byte[] plainBytes = ProtectedData.Unprotect(encryptedBytes, entropy, DataProtectionScope.CurrentUser);
-            return Encoding.UTF8.GetString(plainBytes);
-#else
+            // Use AES decryption for all platforms (cross-platform compatible)
             return DecryptAES(encryptedText);
-#endif
         }
 
         // AES encryption for non-Windows platforms
