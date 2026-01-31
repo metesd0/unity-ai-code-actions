@@ -1,0 +1,155 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
+using UnityEngine;
+
+namespace AICodeActions.Core
+{
+    /// <summary>
+    /// Buffers streaming chunks for smooth UI updates
+    /// Prevents overwhelming the UI with too many rapid updates
+    /// Thread-safe and doesn't block Unity's main thread
+    /// </summary>
+    public class StreamBuffer
+    {
+        private StringBuilder buffer;
+        private Queue<StreamChunk> chunkQueue;
+        private Stopwatch stopwatch; // Thread-safe timing instead of EditorApplication
+        private double lastFlushTime;
+        private int totalChunksReceived;
+        private int totalCharsReceived;
+        
+        // Configuration
+        public float MinFlushInterval { get; set; } = 0.016f;  // ~60 FPS (16ms) - much smoother!
+        public int MaxBufferSize { get; set; } = 10;           // Flush every 10 chars - very responsive
+        public bool AutoFlush { get; set; } = true;
+        
+        // Stats
+        public int TotalChunksReceived => totalChunksReceived;
+        public int TotalCharsReceived => totalCharsReceived;
+        public int CurrentBufferSize => buffer.Length;
+        public bool HasContent => buffer.Length > 0;
+        
+        public StreamBuffer()
+        {
+            buffer = new StringBuilder(256);
+            chunkQueue = new Queue<StreamChunk>();
+            stopwatch = Stopwatch.StartNew(); // Start timing immediately
+            lastFlushTime = 0;
+        }
+        
+        /// <summary>
+        /// Add a chunk to the buffer
+        /// </summary>
+        public void Append(StreamChunk chunk)
+        {
+            if (chunk == null || string.IsNullOrEmpty(chunk.Delta))
+                return;
+            
+            buffer.Append(chunk.Delta);
+            chunkQueue.Enqueue(chunk);
+            totalChunksReceived++;
+            totalCharsReceived += chunk.Delta.Length;
+        }
+        
+        /// <summary>
+        /// Add text directly to buffer
+        /// </summary>
+        public void Append(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return;
+            
+            buffer.Append(text);
+            totalCharsReceived += text.Length;
+        }
+        
+        /// <summary>
+        /// Check if enough time has passed for a flush
+        /// </summary>
+        public bool ShouldFlush()
+        {
+            double currentTime = stopwatch.Elapsed.TotalSeconds;
+            double timeSinceFlush = currentTime - lastFlushTime;
+            
+            // Force flush if buffer is too large
+            if (buffer.Length >= MaxBufferSize)
+                return true;
+            
+            // Flush if enough time passed
+            if (timeSinceFlush >= MinFlushInterval)
+                return true;
+            
+            return false;
+        }
+        
+        /// <summary>
+        /// Flush partial content (smooth streaming)
+        /// </summary>
+        public string FlushPartial(int maxChars = 50)
+        {
+            if (buffer.Length == 0)
+                return string.Empty;
+            
+            int charsToFlush = Math.Min(maxChars, buffer.Length);
+            string result = buffer.ToString(0, charsToFlush);
+            
+            buffer.Remove(0, charsToFlush);
+            lastFlushTime = stopwatch.Elapsed.TotalSeconds;
+            
+            return result;
+        }
+        
+        /// <summary>
+        /// Flush all buffered content
+        /// </summary>
+        public string FlushAll()
+        {
+            if (buffer.Length == 0)
+                return string.Empty;
+            
+            string result = buffer.ToString();
+            buffer.Clear();
+            chunkQueue.Clear();
+            lastFlushTime = stopwatch.Elapsed.TotalSeconds;
+            
+            return result;
+        }
+        
+        /// <summary>
+        /// Peek at buffered content without flushing
+        /// </summary>
+        public string Peek()
+        {
+            return buffer.ToString();
+        }
+        
+        /// <summary>
+        /// Clear all buffer content
+        /// </summary>
+        public void Clear()
+        {
+            buffer.Clear();
+            chunkQueue.Clear();
+        }
+        
+        /// <summary>
+        /// Reset statistics
+        /// </summary>
+        public void ResetStats()
+        {
+            totalChunksReceived = 0;
+            totalCharsReceived = 0;
+        }
+        
+        /// <summary>
+        /// Get buffer statistics
+        /// </summary>
+        public string GetStats()
+        {
+            return $"Chunks: {totalChunksReceived}, Chars: {totalCharsReceived}, Buffer: {buffer.Length}";
+        }
+    }
+}
+

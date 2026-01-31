@@ -1,0 +1,33 @@
+{
+  "name": "com.aicodeactions.editor",
+  "version": "1.3.0",
+  "displayName": "AI Code Actions",
+  "description": "Context-aware AI code generation with offline support for Unity developers. Generate scripts, explain code, and refactor with OpenAI, Gemini, or local LLM (Ollama).",
+  "unity": "2021.3",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
+  "keywords": [
+    "AI",
+    "Code Generation",
+    "ChatGPT",
+    "Gemini",
+    "LLM",
+    "Ollama",
+    "Editor",
+    "Productivity",
+    "Refactoring",
+    "Unity",
+    "MonoBehaviour",
+    "C#",
+    "Offline"
+  ],
+  "author": {
+    "name": "AI Code Actions",
+    "email": "support@aicodeactions.dev",
+    "url": "https://github.com/yourusername/unity-ai-code-actions"
+  },
+  "type": "tool",
+  "hideInEditor": false
+}
+
