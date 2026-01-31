@@ -29,24 +29,33 @@ namespace AICodeActions.Core
         public Action<string> OnError;               // Stream error
         public Action<float> OnProgress;             // Progress update (0-1)
         public Action<string> OnReasoningUpdate;     // Reasoning/thinking tokens update
+        public Action<CodeBlockInfo> OnCodeBlockDetected;  // Code block detected during streaming
+        public Action<string> OnCodeBlockUpdate;     // Live code update for preview panel
         
         // Configuration
         public float UpdateInterval { get; set; } = 0.05f;  // 50ms between UI updates
         public int CharsPerUpdate { get; set; } = 50;       // Max chars per update
         public bool EnableToolDetection { get; set; } = true;
-        
+        public bool EnableCodeBlockDetection { get; set; } = true;  // Enable live code block detection
+
         // State
         public bool IsStreaming => isStreaming;
         public string CurrentText => fullResponse?.ToString() ?? "";
         public double ElapsedTime => streamStopwatch?.Elapsed.TotalSeconds ?? 0;
-        
+
         private double lastUpdateTime;
+
+        // Code block detection state
+        private bool inCodeBlock = false;
+        private StringBuilder currentCodeBlock = new StringBuilder();
+        private string currentCodeLanguage = "csharp";
         
         public StreamManager()
         {
             buffer = new StreamBuffer();
             fullResponse = new StringBuilder();
             reasoningText = new StringBuilder();
+            currentCodeBlock = new StringBuilder();
             streamStopwatch = new Stopwatch();
         }
         
@@ -152,7 +161,13 @@ namespace AICodeActions.Core
         {
             buffer.Append(chunk);
             fullResponse.Append(chunk.Delta);
-            
+
+            // Detect code blocks for live preview
+            if (EnableCodeBlockDetection)
+            {
+                DetectCodeBlocks(chunk.Delta);
+            }
+
             // Check if we should update UI
             if (buffer.ShouldFlush())
             {
@@ -163,6 +178,81 @@ namespace AICodeActions.Core
             if (EnableToolDetection && chunk.Delta != null && chunk.Delta.Contains("[/TOOL]"))
             {
                 FlushBuffer();
+            }
+        }
+
+        /// <summary>
+        /// Detect code blocks in streaming text
+        /// </summary>
+        private void DetectCodeBlocks(string delta)
+        {
+            if (string.IsNullOrEmpty(delta))
+                return;
+
+            string fullText = fullResponse.ToString();
+
+            // Check for code block start: ```language
+            if (!inCodeBlock)
+            {
+                int startIdx = fullText.LastIndexOf("```");
+                if (startIdx >= 0)
+                {
+                    // Check if this is an opening block (not a closing one)
+                    string afterMarker = fullText.Substring(startIdx + 3);
+                    if (!afterMarker.Contains("```"))
+                    {
+                        inCodeBlock = true;
+                        currentCodeBlock.Clear();
+
+                        // Extract language
+                        int newlineIdx = afterMarker.IndexOf('\n');
+                        if (newlineIdx > 0)
+                        {
+                            currentCodeLanguage = afterMarker.Substring(0, newlineIdx).Trim();
+                            if (string.IsNullOrEmpty(currentCodeLanguage))
+                                currentCodeLanguage = "csharp";
+
+                            // Start accumulating code
+                            string codeStart = afterMarker.Substring(newlineIdx + 1);
+                            currentCodeBlock.Append(codeStart);
+
+                            // Notify live preview
+                            OnCodeBlockUpdate?.Invoke(currentCodeBlock.ToString());
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // We're inside a code block, accumulate and check for end
+                currentCodeBlock.Append(delta);
+
+                string codeContent = currentCodeBlock.ToString();
+
+                // Check for closing ```
+                int endIdx = codeContent.LastIndexOf("```");
+                if (endIdx >= 0)
+                {
+                    // Code block ended
+                    inCodeBlock = false;
+                    string finalCode = codeContent.Substring(0, endIdx).Trim();
+
+                    // Notify complete code block
+                    var codeBlockInfo = new CodeBlockInfo
+                    {
+                        Language = currentCodeLanguage,
+                        Code = finalCode,
+                        IsComplete = true
+                    };
+                    OnCodeBlockDetected?.Invoke(codeBlockInfo);
+
+                    currentCodeBlock.Clear();
+                }
+                else
+                {
+                    // Still streaming, update live preview
+                    OnCodeBlockUpdate?.Invoke(codeContent);
+                }
             }
         }
         
@@ -283,5 +373,29 @@ namespace AICodeActions.Core
         {
             return fullResponse?.ToString() ?? "";
         }
+
+        /// <summary>
+        /// Check if currently inside a code block
+        /// </summary>
+        public bool IsInCodeBlock => inCodeBlock;
+
+        /// <summary>
+        /// Get current code block content (while streaming)
+        /// </summary>
+        public string GetCurrentCodeBlock()
+        {
+            return currentCodeBlock?.ToString() ?? "";
+        }
+    }
+
+    /// <summary>
+    /// Information about a detected code block
+    /// </summary>
+    public class CodeBlockInfo
+    {
+        public string Language { get; set; } = "csharp";
+        public string Code { get; set; } = "";
+        public bool IsComplete { get; set; } = false;
+        public string FileName { get; set; } = "";
     }
 }

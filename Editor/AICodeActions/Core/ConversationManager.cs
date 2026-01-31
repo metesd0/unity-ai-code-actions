@@ -93,6 +93,95 @@ namespace AICodeActions.Core
                 }
             }
         }
+
+        /// <summary>
+        /// Get the last assistant message
+        /// </summary>
+        public ChatMessage GetLastAssistantMessage()
+        {
+            for (int i = messages.Count - 1; i >= 0; i--)
+            {
+                if (messages[i].role == MessageRole.Assistant)
+                {
+                    return messages[i];
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Get a message by ID
+        /// </summary>
+        public ChatMessage GetMessageById(string id)
+        {
+            foreach (var msg in messages)
+            {
+                if (msg.id == id)
+                    return msg;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Update message state
+        /// </summary>
+        public void UpdateMessageState(string id, MessageState state)
+        {
+            var msg = GetMessageById(id);
+            if (msg != null)
+            {
+                msg.state = state;
+                msg.isStreaming = (state == MessageState.Streaming);
+            }
+        }
+
+        /// <summary>
+        /// Add a code block to the last assistant message
+        /// </summary>
+        public void AddCodeBlockToLastMessage(CodeBlock codeBlock)
+        {
+            var msg = GetLastAssistantMessage();
+            if (msg != null)
+            {
+                msg.codeBlocks.Add(codeBlock);
+                msg.hasCode = true;
+            }
+        }
+
+        /// <summary>
+        /// Parse code blocks from message content
+        /// </summary>
+        public void ParseCodeBlocks(ChatMessage message)
+        {
+            if (message == null || string.IsNullOrEmpty(message.content))
+                return;
+
+            message.codeBlocks.Clear();
+
+            var pattern = new System.Text.RegularExpressions.Regex(
+                @"```(\w*)\s*\n?([\s\S]*?)```",
+                System.Text.RegularExpressions.RegexOptions.Multiline
+            );
+
+            foreach (System.Text.RegularExpressions.Match match in pattern.Matches(message.content))
+            {
+                string language = match.Groups[1].Value;
+                string code = match.Groups[2].Value.Trim();
+
+                if (string.IsNullOrEmpty(language))
+                    language = "csharp";
+
+                message.codeBlocks.Add(new CodeBlock(code, language));
+            }
+
+            message.hasCode = message.codeBlocks.Count > 0;
+
+            // Also set extractedCode for backwards compatibility
+            if (message.codeBlocks.Count > 0)
+            {
+                message.extractedCode = message.codeBlocks[0].code;
+            }
+        }
         
         /// <summary>
         /// Get conversation history as context for AI
@@ -171,6 +260,59 @@ namespace AICodeActions.Core
         public DateTime timestamp;
         public bool hasCode;
         public string extractedCode;
+
+        // New fields for modern chat bubbles
+        public string id;                           // Unique message identifier
+        public List<CodeBlock> codeBlocks;          // Parsed code blocks from content
+        public MessageState state;                  // Current message state
+        public bool isStreaming;                    // Whether message is still streaming
+
+        public ChatMessage()
+        {
+            id = Guid.NewGuid().ToString("N").Substring(0, 12);
+            codeBlocks = new List<CodeBlock>();
+            state = MessageState.Complete;
+            isStreaming = false;
+        }
+    }
+
+    /// <summary>
+    /// Represents a code block within a message
+    /// </summary>
+    [Serializable]
+    public class CodeBlock
+    {
+        public string id;               // Unique block identifier
+        public string language;         // Programming language (csharp, json, etc.)
+        public string code;             // The actual code content
+        public string fileName;         // Optional file name/path
+        public bool isCollapsed;        // UI collapse state
+        public bool isApplied;          // Whether code has been applied
+
+        public CodeBlock()
+        {
+            id = Guid.NewGuid().ToString("N").Substring(0, 8);
+            language = "csharp";
+            isCollapsed = false;
+            isApplied = false;
+        }
+
+        public CodeBlock(string code, string language = "csharp") : this()
+        {
+            this.code = code;
+            this.language = language;
+        }
+    }
+
+    /// <summary>
+    /// Message state for animations and UI
+    /// </summary>
+    public enum MessageState
+    {
+        Pending,        // Message is being prepared
+        Streaming,      // Message is actively streaming
+        Complete,       // Message is complete
+        Error           // Message encountered an error
     }
     
     public enum MessageRole
