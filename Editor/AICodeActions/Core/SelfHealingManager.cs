@@ -139,7 +139,7 @@ Respond with ONLY ONE WORD: RETRY, SKIP, ROLLBACK, or REPLAN
             
             try
             {
-                var response = await healingModel.SendMessageAsync(healingPrompt);
+                var response = await healingModel.GenerateAsync(healingPrompt);
                 var strategyStr = response.Trim().ToUpper();
                 
                 HealingStrategy strategy;

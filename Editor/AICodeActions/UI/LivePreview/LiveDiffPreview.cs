@@ -95,9 +95,9 @@ namespace AICodeActions.UI.LivePreview
 
             // Simple line-by-line diff (LCS-based diff would be more accurate)
             var originalLines = originalCode.Split('\n');
-            var newLines = newCode.Split('\n');
+            var modifiedLines = newCode.Split('\n');
 
-            ComputeSimpleDiff(originalLines, newLines);
+            ComputeSimpleDiff(originalLines, modifiedLines);
         }
 
         private void ComputeSimpleDiff(string[] originalLines, string[] newLines)

@@ -47,7 +47,7 @@ namespace AICodeActions.Core
             
             try
             {
-                var response = await plannerModel.SendMessageAsync(planningPrompt);
+                var response = await plannerModel.GenerateAsync(planningPrompt);
                 var plan = ParsePlanResponse(response, userGoal);
                 
                 Debug.Log($"[DualModel] Plan created: {plan.TotalTasksCount} steps");
@@ -72,7 +72,7 @@ namespace AICodeActions.Core
             
             try
             {
-                var response = await executorModel.SendMessageAsync(executionPrompt);
+                var response = await executorModel.GenerateAsync(executionPrompt);
                 return response;
             }
             catch (Exception ex)
@@ -103,7 +103,7 @@ Did this step achieve its goal? Respond with ONE WORD:
             
             try
             {
-                var response = await executorModel.SendMessageAsync(validationPrompt);
+                var response = await executorModel.GenerateAsync(validationPrompt);
                 var responseUpper = response.Trim().ToUpper();
                 
                 if (responseUpper.Contains("SUCCESS"))
@@ -152,7 +152,7 @@ Output in same JSON format as original plan.
             
             try
             {
-                var response = await plannerModel.SendMessageAsync(revisionPrompt);
+                var response = await plannerModel.GenerateAsync(revisionPrompt);
                 var revisedPlan = ParsePlanResponse(response, currentPlan.MainGoal);
                 
                 // Preserve completed steps
