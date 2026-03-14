@@ -147,7 +147,7 @@ namespace AICodeActions.UI
             if (selectedProviderIndex == 3) // OpenRouter
             {
                 openRouterModel = EditorGUILayout.TextField("Model", openRouterModel);
-                EditorGUILayout.HelpBox("Enter full model name (e.g., openai/gpt-4, anthropic/claude-2, meta-llama/llama-3-8b-instruct)\nSee all models at: https://openrouter.ai/models", MessageType.Info);
+                EditorGUILayout.HelpBox("Enter full model name (e.g., openai/gpt-4, google/gemini-pro, meta-llama/llama-3-8b-instruct)\nSee all models at: https://openrouter.ai/models", MessageType.Info);
                 
                 // Quick model buttons
                 EditorGUILayout.BeginHorizontal();
@@ -155,8 +155,8 @@ namespace AICodeActions.UI
                     openRouterModel = "openai/gpt-4o";
                 if (GUILayout.Button("GPT-4", GUILayout.Width(80)))
                     openRouterModel = "openai/gpt-4";
-                if (GUILayout.Button("Claude-3.5", GUILayout.Width(80)))
-                    openRouterModel = "anthropic/claude-3.5-sonnet";
+                if (GUILayout.Button("Mistral", GUILayout.Width(80)))
+                    openRouterModel = "mistralai/mistral-medium";
                 if (GUILayout.Button("Llama-3", GUILayout.Width(80)))
                     openRouterModel = "meta-llama/llama-3-70b-instruct";
                 EditorGUILayout.EndHorizontal();

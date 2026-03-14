@@ -69,12 +69,12 @@ In Unity:
 
 #### Option D: OpenRouter (100+ Models) 🔥 NEW!
 - Get API key: [OpenRouter](https://openrouter.ai)
-- Access to GPT-4, Claude 3.5, Llama 3, and 100+ more models
+- Access to GPT-4, Gemini, Llama 3, Mistral, and 100+ more models
 - Model examples:
   - `openai/gpt-4o` - Latest GPT-4
-  - `anthropic/claude-3.5-sonnet` - Best for code
   - `meta-llama/llama-3-70b-instruct` - FREE!
   - `google/gemini-pro` - FREE alternative
+  - `mistralai/mistral-7b-instruct` - Fast open model
 - **See full guide:** [OPENROUTER_GUIDE.md](OPENROUTER_GUIDE.md)
 
 ### 2. Generate Your First Script

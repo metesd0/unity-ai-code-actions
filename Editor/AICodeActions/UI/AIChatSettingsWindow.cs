@@ -98,7 +98,7 @@ namespace AICodeActions.UI
             {
                 openRouterModel = EditorGUILayout.TextField("Model Name", openRouterModel);
                 
-                EditorGUILayout.HelpBox("💡 Enter full model name (e.g., openai/gpt-4, anthropic/claude-3.5-sonnet)\n\nSee all models at: openrouter.ai/models", MessageType.Info);
+                EditorGUILayout.HelpBox("💡 Enter full model name (e.g., openai/gpt-4, google/gemini-pro, meta-llama/llama-3-8b-instruct)\n\nSee all models at: openrouter.ai/models", MessageType.Info);
                 
                 // Quick model selection buttons
                 EditorGUILayout.LabelField("Quick Select:", EditorStyles.miniLabel);
@@ -113,12 +113,12 @@ namespace AICodeActions.UI
                 EditorGUILayout.EndHorizontal();
                 
                 EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Claude 3.5\n$$", GUILayout.Height(40)))
-                    openRouterModel = "anthropic/claude-3.5-sonnet";
-                if (GUILayout.Button("Claude 3\n$$", GUILayout.Height(40)))
-                    openRouterModel = "anthropic/claude-3-opus";
+                if (GUILayout.Button("Gemini 1.5\nFREE", GUILayout.Height(40)))
+                    openRouterModel = "google/gemini-1.5-pro";
                 if (GUILayout.Button("Gemini Pro\nFREE", GUILayout.Height(40)))
                     openRouterModel = "google/gemini-pro";
+                if (GUILayout.Button("Mistral Med\n$$", GUILayout.Height(40)))
+                    openRouterModel = "mistralai/mistral-medium";
                 EditorGUILayout.EndHorizontal();
                 
                 EditorGUILayout.BeginHorizontal();

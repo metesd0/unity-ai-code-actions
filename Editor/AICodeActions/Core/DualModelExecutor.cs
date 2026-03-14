@@ -11,8 +11,8 @@ namespace AICodeActions.Core
     /// </summary>
     public class DualModelExecutor
     {
-        private IModelProvider plannerModel;   // GPT-4, Claude Sonnet, Gemini Pro (expensive, high-quality)
-        private IModelProvider executorModel;  // GPT-3.5, Claude Haiku, Gemini Flash (cheap, fast)
+        private IModelProvider plannerModel;   // GPT-4, Gemini Pro, Mistral Medium (expensive, high-quality)
+        private IModelProvider executorModel;  // GPT-3.5, Gemini Flash, Llama 3 (cheap, fast)
         
         private bool useSameModelForBoth = false; // Fallback if only one model available
         

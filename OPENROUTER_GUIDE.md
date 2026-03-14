@@ -4,7 +4,6 @@
 
 **OpenRouter** is a unified API gateway that provides access to **100+ AI models** from multiple providers:
 - OpenAI (GPT-4, GPT-3.5, etc.)
-- Anthropic (Claude 3.5, Claude 3, etc.)
 - Meta (Llama 3, Llama 2, etc.)
 - Google (Gemini Pro, PaLM, etc.)
 - Mistral AI
@@ -61,8 +60,6 @@ Window → AI Code Actions
 |-------|------|----------|------|
 | **GPT-4o** | `openai/gpt-4o` | Best overall quality | $$$ |
 | **GPT-4 Turbo** | `openai/gpt-4-turbo` | Fast + smart | $$$ |
-| **Claude 3.5 Sonnet** | `anthropic/claude-3.5-sonnet` | Code generation | $$ |
-| **Claude 3 Opus** | `anthropic/claude-3-opus` | Complex tasks | $$$ |
 | **GPT-3.5 Turbo** | `openai/gpt-3.5-turbo` | Fast + cheap | $ |
 | **Llama 3 70B** | `meta-llama/llama-3-70b-instruct` | Open source, free! | FREE |
 | **Llama 3 8B** | `meta-llama/llama-3-8b-instruct` | Very fast, free! | FREE |
@@ -80,9 +77,9 @@ See all available models at: **https://openrouter.ai/models**
 ### Popular Categories:
 
 #### 🚀 Best for Code Generation
-- `anthropic/claude-3.5-sonnet` - Excellent at Unity C# code
 - `openai/gpt-4o` - Latest OpenAI model
 - `meta-llama/llama-3-70b-instruct` - Free, very good
+- `mistralai/mistral-medium` - Strong balanced coding model
 
 #### 💰 Best Free Models
 - `meta-llama/llama-3-70b-instruct` - 70B parameters
@@ -97,8 +94,8 @@ See all available models at: **https://openrouter.ai/models**
 
 #### 🧠 Most Intelligent
 - `openai/gpt-4o` - OpenAI's best
-- `anthropic/claude-3-opus` - Anthropic's best
 - `meta-llama/llama-3-70b-instruct` - Free alternative
+- `mistralai/mistral-medium` - Balanced reasoning
 
 ---
 
@@ -113,11 +110,11 @@ Temperature: 0.7
 Max Tokens: 2048
 ```
 
-### Example 2: Claude 3.5 Sonnet (Great for Code)
+### Example 2: Mistral Medium (Great for Code)
 ```
 Provider: OpenRouter
 API Key: sk-or-v1-xxxxxxxxxxxxxxxx
-Model: anthropic/claude-3.5-sonnet
+Model: mistralai/mistral-medium
 Temperature: 0.7
 Max Tokens: 2048
 ```
@@ -143,7 +140,7 @@ Max Tokens: 2048
 In the UI, click these buttons for instant model selection:
 - **GPT-4o** - Best overall
 - **GPT-4** - Good balance
-- **Claude-3.5** - Great for code
+- **Mistral** - Great open model
 - **Llama-3** - Free option
 
 ### 3. Pricing
@@ -192,7 +189,6 @@ In the UI, click these buttons for instant model selection:
 | Model | Provider | Cost per 1K tokens | Speed | Quality |
 |-------|----------|-------------------|-------|---------|
 | GPT-4o | OpenRouter | $5.00 | ⚡⚡⚡ | 🌟🌟🌟🌟🌟 |
-| Claude 3.5 | OpenRouter | $3.00 | ⚡⚡⚡ | 🌟🌟🌟🌟🌟 |
 | GPT-3.5 Turbo | OpenRouter | $0.50 | ⚡⚡⚡⚡⚡ | 🌟🌟🌟🌟 |
 | Llama 3 70B | OpenRouter | FREE | ⚡⚡⚡ | 🌟🌟🌟🌟 |
 | Gemini Pro | OpenRouter | FREE | ⚡⚡⚡⚡ | 🌟🌟🌟 |
