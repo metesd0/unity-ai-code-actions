@@ -92,6 +92,9 @@ All notable changes to AI Code Actions will be documented in this file.
 
 ## Notes
 
+### Maintenance
+- Repository history metadata was cleaned up to keep contributor attribution current.
+
 ### Why These Features?
 Based on our competitive analysis and Unity developer needs:
 1. **Offline mode** - differentiates from competitors (AI Toolbox, U Coder)
